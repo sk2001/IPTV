@@ -19,6 +19,10 @@ public sealed class XtreamClient
         _pass = a.Password;
     }
 
+    /// <summary>Guide complet XMLTV du serveur.</summary>
+    public string XmltvUrl =>
+        $"{_base}/xmltv.php?username={Uri.EscapeDataString(_user)}&password={Uri.EscapeDataString(_pass)}";
+
     private string Api(string action = "", string extra = "")
     {
         var u = $"{_base}/player_api.php?username={Uri.EscapeDataString(_user)}&password={Uri.EscapeDataString(_pass)}";
@@ -104,6 +108,7 @@ public sealed class XtreamClient
                 item.Id = Str(e, "stream_id");
                 item.Name = Str(e, "name");
                 item.Logo = NullIfEmpty(Str(e, "stream_icon"));
+                item.EpgId = NullIfEmpty(Str(e, "epg_channel_id"));
                 item.StreamUrl = $"{_base}/live/{Uri.EscapeDataString(_user)}/{Uri.EscapeDataString(_pass)}/{item.Id}.ts";
                 break;
             case ContentKind.Movie:

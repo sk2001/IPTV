@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using IptvPlayer.Models;
@@ -19,8 +20,36 @@ public sealed partial class MainViewModel : ObservableObject
     public ObservableCollection<Account> Accounts { get; }
     public AppState State => _state;
 
+    public enum NavMode { Live, Guide, Movies, Series }
+
+    private EpgData? _epg;
+    private MediaItem? _playing;
+    private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(60) };
+
     [ObservableProperty] private Account? _selectedAccount;
-    [ObservableProperty] private ContentKind _currentKind = ContentKind.Live;
+    [ObservableProperty] private NavMode _mode = NavMode.Live;
+
+    // Guide TV
+    [ObservableProperty] private IReadOnlyList<GuideRow> _guideRows = Array.Empty<GuideRow>();
+    [ObservableProperty] private DateTime _guideStart = Floor30(DateTime.Now.AddMinutes(-30));
+    [ObservableProperty] private DateTime _clockNow = DateTime.Now;
+    [ObservableProperty] private bool _isEpgLoading;
+    [ObservableProperty] private string _guideEmptyText = "";
+
+    public ContentKind CurrentKind => KindOf(Mode);
+    public bool IsGuide => Mode == NavMode.Guide;
+    public bool IsNotGuide => Mode != NavMode.Guide;
+    public string GuideDateText => GuideStart.ToString("dddd d MMMM", System.Globalization.CultureInfo.CurrentCulture);
+
+    private static ContentKind KindOf(NavMode m) => m switch
+    {
+        NavMode.Movies => ContentKind.Movie,
+        NavMode.Series => ContentKind.Series,
+        _ => ContentKind.Live,
+    };
+
+    private static DateTime Floor30(DateTime d) =>
+        new(d.Year, d.Month, d.Day, d.Hour, d.Minute >= 30 ? 30 : 0, 0);
     [ObservableProperty] private IReadOnlyList<Category> _categories = Array.Empty<Category>();
     [ObservableProperty] private Category? _selectedCategory;
     [ObservableProperty] private string _searchText = "";
@@ -32,9 +61,10 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool HasAccounts => Accounts.Count > 0;
 
-    public bool IsLive { get => CurrentKind == ContentKind.Live; set { if (value) CurrentKind = ContentKind.Live; } }
-    public bool IsMovies { get => CurrentKind == ContentKind.Movie; set { if (value) CurrentKind = ContentKind.Movie; } }
-    public bool IsSeries { get => CurrentKind == ContentKind.Series; set { if (value) CurrentKind = ContentKind.Series; } }
+    public bool IsLive { get => Mode == NavMode.Live; set { if (value) Mode = NavMode.Live; } }
+    public bool IsGuideNav { get => Mode == NavMode.Guide; set { if (value) Mode = NavMode.Guide; } }
+    public bool IsMovies { get => Mode == NavMode.Movies; set { if (value) Mode = NavMode.Movies; } }
+    public bool IsSeries { get => Mode == NavMode.Series; set { if (value) Mode = NavMode.Series; } }
 
     /// <summary>Demande de lecture : (url, titre).</summary>
     public event Action<string, string>? PlayRequested;
@@ -45,6 +75,15 @@ public sealed partial class MainViewModel : ObservableObject
     public MainViewModel()
     {
         Accounts = new ObservableCollection<Account>(_store.Load());
+        _clock.Tick += (_, _) => OnClockTick();
+        _clock.Start();
+    }
+
+    private void OnClockTick()
+    {
+        ClockNow = DateTime.Now;
+        foreach (var i in Items) i.RefreshEpg();
+        UpdateNowSubtitle();
     }
 
     public void Initialize()
@@ -54,14 +93,25 @@ public sealed partial class MainViewModel : ObservableObject
         else UpdateEmpty();
     }
 
-    partial void OnCurrentKindChanged(ContentKind value)
+    partial void OnModeChanged(NavMode oldValue, NavMode newValue)
     {
+        OnPropertyChanged(nameof(CurrentKind));
         OnPropertyChanged(nameof(IsLive));
+        OnPropertyChanged(nameof(IsGuideNav));
         OnPropertyChanged(nameof(IsMovies));
         OnPropertyChanged(nameof(IsSeries));
-        SearchText = "";
-        RebuildCategories(null);
+        OnPropertyChanged(nameof(IsGuide));
+        OnPropertyChanged(nameof(IsNotGuide));
+
+        if (KindOf(oldValue) != KindOf(newValue))
+        {
+            SearchText = "";
+            RebuildCategories(null);
+        }
+        if (newValue == NavMode.Guide) RebuildGuideRows();
     }
+
+    partial void OnGuideStartChanged(DateTime value) => OnPropertyChanged(nameof(GuideDateText));
 
     partial void OnSelectedAccountChanged(Account? value)
     {
@@ -81,6 +131,7 @@ public sealed partial class MainViewModel : ObservableObject
         var cts = _loadCts = new CancellationTokenSource();
 
         _catalog = null;
+        SetEpg(null);
         Categories = Array.Empty<Category>();
         Items = Array.Empty<MediaItem>();
         if (acc == null) { Status = ""; IsLoading = false; UpdateEmpty(); return; }
@@ -108,6 +159,9 @@ public sealed partial class MainViewModel : ObservableObject
                 await SetCatalogAsync(acc, fresh);
                 Status = $"{fresh.Items.Count:N0} éléments · mis à jour";
             }
+
+            if (_catalog != null && !cts.IsCancellationRequested)
+                await LoadEpgAsync(acc, _catalog, force, cts.Token);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
@@ -129,6 +183,7 @@ public sealed partial class MainViewModel : ObservableObject
             foreach (var i in catalog.Items)
             {
                 i.SearchKey = i.Name.ToLowerInvariant();
+                i.NameKey = EpgData.Norm(i.Name);
                 i.IsFavorite = favs.Contains($"{prefix}|{(int)i.Kind}|{i.Id}");
             }
         });
@@ -187,8 +242,123 @@ public sealed partial class MainViewModel : ObservableObject
             if (cts.IsCancellationRequested) return;
             Items = result;
             UpdateEmpty();
+            if (IsGuide) RebuildGuideRows();
         }
         catch (OperationCanceledException) { }
+    }
+
+    // ---------------------------------------------------------------- Guide TV (EPG)
+
+    private async Task LoadEpgAsync(Account acc, Catalog catalog, bool force, CancellationToken ct)
+    {
+        try
+        {
+            if (EpgService.SourceUrl(acc, catalog) == null) { GuideEmptyText = "Cette playlist ne fournit pas de guide TV (url-tvg absent)."; return; }
+
+            IsEpgLoading = true;
+            GuideEmptyText = "Chargement du guide TV…";
+            EpgData? cache = force ? null : await EpgService.LoadCacheAsync(acc);
+            if (ct.IsCancellationRequested) return;
+            if (cache != null) SetEpg(cache);
+
+            var stale = force || cache == null || DateTime.UtcNow - cache.FetchedAt > TimeSpan.FromHours(6);
+            if (stale)
+            {
+                var old = Status;
+                Status = "Guide TV : téléchargement…";
+                try
+                {
+                    var fresh = await EpgService.FetchAsync(acc, catalog, ct);
+                    if (ct.IsCancellationRequested) return;
+                    if (fresh != null) SetEpg(fresh);
+                    Status = fresh == null ? old : $"Guide TV : {fresh.ById.Count(kv => kv.Value.Count > 0):N0} chaînes";
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    Status = "Guide TV indisponible : " + ex.Message;
+                    if (_epg == null) GuideEmptyText = "Guide TV indisponible pour ce compte.";
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally { IsEpgLoading = false; UpdateGuideEmpty(); }
+    }
+
+    private void SetEpg(EpgData? data)
+    {
+        _epg = data;
+        EpgData.Current = data;
+        foreach (var i in Items) i.RefreshEpg();
+        UpdateNowSubtitle();
+        if (data == null) GuideRows = Array.Empty<GuideRow>();
+        else if (IsGuide) RebuildGuideRows();
+    }
+
+    private async void RebuildGuideRows()
+    {
+        var epg = _epg;
+        var items = Items;
+        if (epg == null) { GuideRows = Array.Empty<GuideRow>(); UpdateGuideEmpty(); return; }
+
+        var rows = await Task.Run(() =>
+        {
+            var list = new List<GuideRow>();
+            foreach (var i in items)
+            {
+                if (i.Kind != ContentKind.Live) continue;
+                var e = epg.Find(i);
+                if (e != null) list.Add(new GuideRow(i, e));
+            }
+            return list;
+        });
+
+        if (!ReferenceEquals(items, Items) || !ReferenceEquals(epg, _epg)) return;   // résultat périmé
+        GuideRows = rows;
+        UpdateGuideEmpty();
+    }
+
+    private void UpdateGuideEmpty()
+    {
+        if (GuideRows.Count > 0) { GuideEmptyText = ""; return; }
+        if (IsEpgLoading) { GuideEmptyText = "Chargement du guide TV…"; return; }
+        if (_epg == null)
+        {
+            if (string.IsNullOrEmpty(GuideEmptyText) || GuideEmptyText.StartsWith("Chargement"))
+                GuideEmptyText = "Aucun guide TV disponible pour ce compte.";
+            return;
+        }
+        GuideEmptyText = "Aucune chaîne de cette sélection n'a de programme dans le guide.";
+    }
+
+    [RelayCommand]
+    private void GuideShift(string minutes)
+    {
+        var next = GuideStart.AddMinutes(int.Parse(minutes));
+        var min = Floor30(DateTime.Now.AddHours(-2));
+        var max = DateTime.Now.AddHours(32);
+        GuideStart = next < min ? min : next > max ? max : next;
+    }
+
+    [RelayCommand]
+    private void GoToNow() => GuideStart = Floor30(DateTime.Now.AddMinutes(-30));
+
+    /// <summary>Ouvre le lecteur sur la chaîne choisie dans le guide.</summary>
+    public async Task PlayFromGuideAsync(GuideRow row)
+    {
+        Mode = NavMode.Live;
+        await PlayAsync(row.Channel);
+    }
+
+    private void UpdateNowSubtitle()
+    {
+        var item = _playing;
+        if (item == null || item.Kind != ContentKind.Live) return;
+        var list = _epg?.Find(item);
+        if (list == null) return;
+        var (now, next) = EpgData.NowNext(list, DateTime.Now);
+        if (now == null) return;
+        NowSubtitle = $"{now.Start:HH:mm}–{now.End:HH:mm}  {now.Title}" + (next != null ? $"     ›  {next.Start:HH:mm}  {next.Title}" : "");
     }
 
     private void UpdateEmpty()
@@ -234,12 +404,18 @@ public sealed partial class MainViewModel : ObservableObject
 
         if (string.IsNullOrEmpty(item.StreamUrl)) return;
         NowSubtitle = "";
+        _playing = item;
         PlayRequested?.Invoke(item.StreamUrl, item.Name);
-        if (item.Kind == ContentKind.Live && acc.Type == AccountType.Xtream)
-            _ = LoadEpgAsync(acc, item);
+        if (item.Kind == ContentKind.Live)
+        {
+            UpdateNowSubtitle();
+            // Repli : petit guide par chaîne (Xtream) si le guide complet n'est pas (encore) disponible.
+            if (NowSubtitle.Length == 0 && acc.Type == AccountType.Xtream)
+                _ = LoadShortEpgAsync(acc, item);
+        }
     }
 
-    private async Task LoadEpgAsync(Account acc, MediaItem item)
+    private async Task LoadShortEpgAsync(Account acc, MediaItem item)
     {
         _epgCts?.Cancel();
         var cts = _epgCts = new CancellationTokenSource();

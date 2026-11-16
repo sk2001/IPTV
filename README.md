@@ -7,7 +7,7 @@ Lecteur IPTV Windows autonome (WPF / .NET 9) avec **VLC embarqué** (LibVLCSharp
 - Comptes multiples : **Xtream Codes** (serveur + identifiants, ou collage direct d'une URL `get.php?username=…&password=…`) et **playlists M3U** (URL ou fichier local), avec bouton *Tester*.
 - Mots de passe chiffrés avec DPAPI (`%AppData%\IptvPlayer\accounts.json`).
 - Live, Films, Séries (choix de la saison / de l'épisode), catégories, recherche instantanée, favoris.
-- Guide des programmes (EPG court) pour les chaînes Xtream.
+- **Guide TV** : grille horaire (chaînes × programmes) avec trait « maintenant », infobulle de description, navigation ±2 h (boutons, `←` `→`, Maj + molette), filtre par catégorie et recherche, double-clic pour regarder. La liste des chaînes affiche aussi l'émission en cours avec sa progression. Source : `xmltv.php` (Xtream) ou `url-tvg` / `x-tvg-url` (M3U, URL ou fichier local) ; rapprochement par `tvg-id` puis par nom de chaîne ; mis en cache 6 h.
 - Lecteur VLC : barre de progression (VOD), volume, muet, pistes audio / sous-titres, plein écran.
 - Raccourcis : `Espace` pause · `F` / `F11` plein écran · `Échap` quitter le plein écran · `M` muet · `↑ ↓` volume · `← →` ±10 s · double-clic sur la vidéo = plein écran.
 - Performances : catalogue mis en cache (JSON gzip) → affichage instantané au lancement, rafraîchi en arrière-plan ; listes virtualisées (des dizaines de milliers de chaînes) ; décodage matériel VLC ; initialisation de VLC en arrière-plan.

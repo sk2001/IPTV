@@ -173,6 +173,9 @@ public partial class MainWindow : Window
     {
         if (e.PropertyName == nameof(MainViewModel.NowSubtitle))
             SubtitleText.Text = _vm.NowSubtitle;
+        else if (e.PropertyName == nameof(MainViewModel.IsGuide))
+            // La superposition du lecteur est une fenêtre séparée : on la masque pour dégager la grille.
+            Overlay.Visibility = _vm.IsGuide ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void ShowIdle()
@@ -323,6 +326,14 @@ public partial class MainWindow : Window
     private void HandleKey(KeyEventArgs e)
     {
         if (e.OriginalSource is TextBox || Keyboard.FocusedElement is TextBox) return;
+
+        if (_vm.IsGuide && e.Key is Key.Left or Key.Right)
+        {
+            _vm.GuideShiftCommand.Execute(e.Key == Key.Left ? "-30" : "30");
+            e.Handled = true;
+            return;
+        }
+
         switch (e.Key)
         {
             case Key.Space: TogglePause(); break;
@@ -349,6 +360,25 @@ public partial class MainWindow : Window
             e.Handled = true;
             _ = _vm.PlayAsync(item);
         }
+    }
+
+    // ---- Guide TV ----
+
+    private void GuideRow_DoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is ListBoxItem { DataContext: GuideRow row })
+        {
+            e.Handled = true;
+            _ = _vm.PlayFromGuideAsync(row);
+        }
+    }
+
+    /// <summary>Maj + molette : décale l'horaire (la molette seule fait défiler les chaînes).</summary>
+    private void GuideList_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if ((Keyboard.Modifiers & ModifierKeys.Shift) == 0) return;
+        e.Handled = true;
+        _vm.GuideShiftCommand.Execute(e.Delta > 0 ? "-30" : "30");
     }
 
     private void ItemList_KeyDown(object sender, KeyEventArgs e)

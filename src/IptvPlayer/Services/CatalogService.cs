@@ -19,7 +19,8 @@ public sealed class CatalogService
             if (!File.Exists(f)) return null;
             using var fs = File.OpenRead(f);
             using var gz = new GZipStream(fs, CompressionMode.Decompress);
-            return JsonSerializer.Deserialize<Catalog>(gz);
+            var cat = JsonSerializer.Deserialize<Catalog>(gz);
+            return cat is { Version: Catalog.CurrentVersion } ? cat : null;   // ancien format : on re-télécharge
         }
         catch { return null; }
     });
@@ -30,6 +31,7 @@ public sealed class CatalogService
             ? await new XtreamClient(a).FetchCatalogAsync(progress, ct).ConfigureAwait(false)
             : await M3uParser.LoadAsync(a.Url, ct).ConfigureAwait(false);
         cat.FetchedAt = DateTime.UtcNow;
+        cat.Version = Catalog.CurrentVersion;
         _ = Task.Run(() => SaveCache(a, cat), CancellationToken.None);
         return cat;
     }
@@ -50,5 +52,6 @@ public sealed class CatalogService
     public static void DeleteCache(Account a)
     {
         try { File.Delete(CacheFile(a)); } catch { }
+        try { File.Delete(EpgService.CacheFile(a)); } catch { }
     }
 }

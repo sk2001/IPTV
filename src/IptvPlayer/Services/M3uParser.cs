@@ -21,7 +21,7 @@ public static partial class M3uParser
     {
         var cat = new Catalog();
         var groups = new Dictionary<string, Category>(StringComparer.OrdinalIgnoreCase);
-        string? name = null, logo = null, group = null;
+        string? name = null, logo = null, group = null, tvgId = null;
         var n = 0;
 
         using var reader = new StringReader(text);
@@ -31,15 +31,25 @@ public static partial class M3uParser
             line = line.Trim();
             if (line.Length == 0) continue;
 
-            if (line.StartsWith("#EXTINF", StringComparison.OrdinalIgnoreCase))
+            if (line.StartsWith("#EXTM3U", StringComparison.OrdinalIgnoreCase))
             {
-                logo = group = null;
+                foreach (Match m in AttrRegex().Matches(line))
+                {
+                    var key = m.Groups[1].Value.ToLowerInvariant();
+                    if ((key == "url-tvg" || key == "x-tvg-url") && cat.EpgUrl == null)
+                        cat.EpgUrl = m.Groups[2].Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
+                }
+            }
+            else if (line.StartsWith("#EXTINF", StringComparison.OrdinalIgnoreCase))
+            {
+                logo = group = tvgId = null;
                 foreach (Match m in AttrRegex().Matches(line))
                 {
                     switch (m.Groups[1].Value.ToLowerInvariant())
                     {
                         case "tvg-logo": logo = m.Groups[2].Value; break;
                         case "group-title": group = m.Groups[2].Value; break;
+                        case "tvg-id": tvgId = m.Groups[2].Value; break;
                     }
                 }
                 var comma = line.LastIndexOf(',');
@@ -62,6 +72,7 @@ public static partial class M3uParser
                     Logo = string.IsNullOrWhiteSpace(logo) ? null : logo,
                     CategoryId = g,
                     Kind = ContentKind.Live,
+                    EpgId = string.IsNullOrWhiteSpace(tvgId) ? null : tvgId,
                     StreamUrl = line,
                 });
                 name = null;
