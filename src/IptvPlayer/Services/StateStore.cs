@@ -8,6 +8,7 @@ public sealed class AppState
     public Guid? LastAccountId { get; set; }
     public HashSet<string> Favorites { get; set; } = new();
     public int Volume { get; set; } = 80;
+    public string? RecordingsDir { get; set; }
 }
 
 public static class StateStore

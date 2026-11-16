@@ -98,6 +98,7 @@
                     <RadioButton Style="{StaticResource NavButton}" Content="Guide" Tag="&#xE787;" IsChecked="{Binding IsGuideNav, Mode=TwoWay}" GroupName="nav"/>
                     <RadioButton Style="{StaticResource NavButton}" Content="Films" Tag="&#xE714;" IsChecked="{Binding IsMovies, Mode=TwoWay}" GroupName="nav"/>
                     <RadioButton Style="{StaticResource NavButton}" Content="Séries" Tag="&#xE8F1;" IsChecked="{Binding IsSeries, Mode=TwoWay}" GroupName="nav"/>
+                    <RadioButton Style="{StaticResource NavButton}" Content="Enreg." Tag="&#xE74E;" IsChecked="{Binding IsRecordingsNav, Mode=TwoWay}" GroupName="nav"/>
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,12" HorizontalAlignment="Center">
                     <Button Style="{StaticResource IconButton}" Content="&#xE72C;" ToolTip="Actualiser le catalogue"
@@ -111,6 +112,15 @@
         <!-- Catégories -->
         <Border x:Name="CatPane" Grid.Column="1" Background="{StaticResource BgBrush}"
                 BorderBrush="{StaticResource LineBrush}" BorderThickness="0,0,1,0">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsRecordings}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <DockPanel>
                 <Button x:Name="AccountButton" DockPanel.Dock="Top" Margin="10,12,10,8" Padding="12,9" Click="AccountButton_Click" HorizontalContentAlignment="Stretch">
                     <Grid>
@@ -158,7 +168,7 @@
             <Border.Style>
                 <Style TargetType="Border">
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsGuide}" Value="True">
+                        <DataTrigger Binding="{Binding IsPlayerHidden}" Value="True">
                             <Setter Property="Visibility" Value="Collapsed"/>
                         </DataTrigger>
                     </Style.Triggers>
@@ -317,12 +327,83 @@
             </Grid>
         </Border>
 
+        <!-- Enregistrements (remplace catégories + liste + lecteur) -->
+        <Border x:Name="RecPane" Grid.Column="1" Grid.ColumnSpan="3" Background="{StaticResource BgBrush}">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsRecordings}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid Margin="28,20,28,16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Enregistrements" FontSize="20" FontWeight="SemiBold"/>
+                        <TextBlock Text="{Binding RecordingsDir}" Foreground="{StaticResource MutedBrush}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="Ouvrir le dossier" Click="OpenRecDir_Click" Margin="0,0,8,0"/>
+                        <Button Content="Changer le dossier…" Click="ChooseRecDir_Click"/>
+                    </StackPanel>
+                </Grid>
+                <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" CornerRadius="12">
+                    <Grid>
+                        <ListBox x:Name="RecList" ItemsSource="{Binding Recordings}" Margin="0,8" VirtualizingPanel.ScrollUnit="Pixel">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                    <EventSetter Event="MouseDoubleClick" Handler="RecItem_DoubleClick"/>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type m:RecordingFile}">
+                                    <Grid Height="54">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="170"/>
+                                            <ColumnDefinition Width="90"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center" Margin="6,0">
+                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="13.5"/>
+                                            <TextBlock Text="● enregistrement en cours" FontSize="11" Foreground="{StaticResource DangerBrush}"
+                                                       Visibility="{Binding IsActive, Converter={StaticResource B2V}}"/>
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="{Binding DateText}" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding SizeText}" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal">
+                                            <Button Style="{StaticResource IconButton}" Content="&#xE768;" ToolTip="Lire" Click="RecPlay_Click"/>
+                                            <Button Style="{StaticResource IconButton}" Content="&#xE74D;" ToolTip="Supprimer" Click="RecDelete_Click"
+                                                    Foreground="{StaticResource DangerBrush}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <TextBlock Text="{Binding RecordingsEmptyText}" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" TextAlignment="Center" LineHeight="22" IsHitTestVisible="False"/>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
         <!-- Lecteur VLC -->
         <vlc:VideoView x:Name="Video" Grid.Column="3" Background="Black">
             <vlc:VideoView.Style>
                 <Style TargetType="vlc:VideoView">
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsGuide}" Value="True">
+                        <DataTrigger Binding="{Binding IsPlayerHidden}" Value="True">
                             <Setter Property="Visibility" Value="Collapsed"/>
                         </DataTrigger>
                     </Style.Triggers>
@@ -338,6 +419,14 @@
 
                 <TextBlock x:Name="BufferText" Foreground="White" FontSize="16" FontWeight="SemiBold"
                            HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+
+                <Border x:Name="RecBadge" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,18,22,0"
+                        Background="#B3000000" CornerRadius="14" Padding="12,5" Visibility="Collapsed">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="RecBlink" Width="9" Height="9" Fill="#F85149" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="RecText" Foreground="White" FontSize="12.5" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Border>
 
                 <Border x:Name="TopBar" VerticalAlignment="Top" Padding="22,18,22,34" Visibility="Collapsed">
                     <Border.Background>
@@ -377,6 +466,9 @@
                                 <Button Style="{StaticResource IconButton}" Content="&#xE71A;" Foreground="White" Click="Stop_Click" ToolTip="Arrêter"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button x:Name="RecBtn" Style="{StaticResource IconButton}" Click="Record_Click" ToolTip="Enregistrer (R)">
+                                    <Ellipse x:Name="RecDot" Width="14" Height="14" Stroke="#F85149" StrokeThickness="2" Fill="Transparent"/>
+                                </Button>
                                 <Button Style="{StaticResource IconButton}" Content="&#xE8D6;" Foreground="White" Click="Audio_Click" ToolTip="Piste audio suivante"/>
                                 <Button Style="{StaticResource IconButton}" Content="&#xE7F0;" Foreground="White" Click="Subs_Click" ToolTip="Sous-titres suivants"/>
                                 <Button x:Name="MuteBtn" Style="{StaticResource IconButton}" Content="&#xE767;" Foreground="White" Click="Mute_Click" ToolTip="Muet (M)"/>

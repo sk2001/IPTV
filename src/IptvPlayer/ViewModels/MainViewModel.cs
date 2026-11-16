@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -20,7 +21,7 @@ public sealed partial class MainViewModel : ObservableObject
     public ObservableCollection<Account> Accounts { get; }
     public AppState State => _state;
 
-    public enum NavMode { Live, Guide, Movies, Series }
+    public enum NavMode { Live, Guide, Movies, Series, Recordings }
 
     private EpgData? _epg;
     private MediaItem? _playing;
@@ -39,6 +40,17 @@ public sealed partial class MainViewModel : ObservableObject
     public ContentKind CurrentKind => KindOf(Mode);
     public bool IsGuide => Mode == NavMode.Guide;
     public bool IsNotGuide => Mode != NavMode.Guide;
+    public bool IsRecordings => Mode == NavMode.Recordings;
+    /// <summary>Guide et Enregistrements remplacent le lecteur : la vidéo (et sa superposition) est masquée.</summary>
+    public bool IsPlayerHidden => Mode is NavMode.Guide or NavMode.Recordings;
+
+    // Enregistrements
+    [ObservableProperty] private IReadOnlyList<RecordingFile> _recordings = Array.Empty<RecordingFile>();
+    [ObservableProperty] private string? _activeRecordingPath;
+    public string RecordingsDir => string.IsNullOrWhiteSpace(_state.RecordingsDir) ? RecordingService.DefaultDir : _state.RecordingsDir!;
+    public string RecordingsEmptyText => Recordings.Count == 0
+        ? "Aucun enregistrement.\nPendant une lecture, clique sur le bouton ● du lecteur (ou touche R)."
+        : "";
     public string GuideDateText => GuideStart.ToString("dddd d MMMM", System.Globalization.CultureInfo.CurrentCulture);
 
     private static ContentKind KindOf(NavMode m) => m switch
@@ -65,6 +77,7 @@ public sealed partial class MainViewModel : ObservableObject
     public bool IsGuideNav { get => Mode == NavMode.Guide; set { if (value) Mode = NavMode.Guide; } }
     public bool IsMovies { get => Mode == NavMode.Movies; set { if (value) Mode = NavMode.Movies; } }
     public bool IsSeries { get => Mode == NavMode.Series; set { if (value) Mode = NavMode.Series; } }
+    public bool IsRecordingsNav { get => Mode == NavMode.Recordings; set { if (value) Mode = NavMode.Recordings; } }
 
     /// <summary>Demande de lecture : (url, titre).</summary>
     public event Action<string, string>? PlayRequested;
@@ -102,6 +115,10 @@ public sealed partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsSeries));
         OnPropertyChanged(nameof(IsGuide));
         OnPropertyChanged(nameof(IsNotGuide));
+        OnPropertyChanged(nameof(IsRecordings));
+        OnPropertyChanged(nameof(IsRecordingsNav));
+        OnPropertyChanged(nameof(IsPlayerHidden));
+        if (newValue == NavMode.Recordings) _ = RefreshRecordingsAsync();
 
         if (KindOf(oldValue) != KindOf(newValue))
         {
@@ -245,6 +262,45 @@ public sealed partial class MainViewModel : ObservableObject
             if (IsGuide) RebuildGuideRows();
         }
         catch (OperationCanceledException) { }
+    }
+
+    // ---------------------------------------------------------------- Enregistrements
+
+    partial void OnActiveRecordingPathChanged(string? value) => _ = RefreshRecordingsAsync();
+
+    public async Task RefreshRecordingsAsync()
+    {
+        var dir = RecordingsDir;
+        var active = ActiveRecordingPath;
+        Recordings = await Task.Run(() => RecordingService.List(dir, active));
+        OnPropertyChanged(nameof(RecordingsEmptyText));
+    }
+
+    public void SetRecordingsDir(string dir)
+    {
+        _state.RecordingsDir = dir;
+        StateStore.Save(_state);
+        OnPropertyChanged(nameof(RecordingsDir));
+        _ = RefreshRecordingsAsync();
+    }
+
+    public void PlayRecording(RecordingFile file)
+    {
+        if (!File.Exists(file.Path)) { _ = RefreshRecordingsAsync(); return; }
+        Mode = NavMode.Live;
+        _playing = null;
+        NowSubtitle = "";
+        PlayRequested?.Invoke(file.Path, file.Name);
+    }
+
+    /// <summary>Supprime un enregistrement (refusé s'il est en cours). Retourne un message d'erreur ou null.</summary>
+    public string? DeleteRecording(RecordingFile file)
+    {
+        if (file.IsActive) return "Arrête d'abord l'enregistrement en cours.";
+        try { File.Delete(file.Path); }
+        catch (Exception ex) { return ex.Message; }
+        _ = RefreshRecordingsAsync();
+        return null;
     }
 
     // ---------------------------------------------------------------- Guide TV (EPG)

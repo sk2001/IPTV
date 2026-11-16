@@ -24,6 +24,14 @@ public partial class MainWindow : Window
     private bool _seeking;
     private bool _volumeInit = true;
 
+    // Enregistrement
+    private string? _currentUrl, _currentTitle;
+    private string? _recPath;
+    private DateTime _recStart;
+    private bool _recWarned;
+    private long _resumeAtMs;
+    private readonly DispatcherTimer _recTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+
     private bool _fullscreen;
     private WindowState _prevState;
     private WindowStyle _prevStyle;
@@ -44,13 +52,23 @@ public partial class MainWindow : Window
         _vm.PropertyChanged += OnVmPropertyChanged;
 
         _hideTimer.Tick += (_, _) => HideControls();
+        _recTimer.Tick += (_, _) => UpdateRecBadge();
         Overlay.MouseMove += (_, _) => ShowControls();
         Overlay.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) ToggleFullscreen(); };
         Overlay.PreviewKeyDown += (_, e) => HandleKey(e);
         PreviewKeyDown += (_, e) => HandleKey(e);
 
         Loaded += OnLoaded;
+        Closing += OnClosing;
         Closed += OnClosed;
+    }
+
+    private void OnClosing(object? sender, CancelEventArgs e)
+    {
+        if (_recPath == null) return;
+        var r = MessageBox.Show(this, "Un enregistrement est en cours. Quitter l'application l'arrêtera.\n\nQuitter quand même ?",
+            "Enregistrement en cours", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (r != MessageBoxResult.Yes) e.Cancel = true;
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -98,6 +116,7 @@ public partial class MainWindow : Window
                 Volume = _vm.State.Volume,
             };
 
+            player.Playing += (_, _) => Ui(ResumeIfNeeded);
             player.Playing += (_, _) => Ui(() => { PlayBtn.Content = ""; BufferText.Visibility = Visibility.Collapsed; });
             player.Paused += (_, _) => Ui(() => { PlayBtn.Content = ""; ShowControls(); });
             player.EndReached += (_, _) => Ui(ShowIdle);
@@ -148,10 +167,12 @@ public partial class MainWindow : Window
             BufferText.Visibility = Visibility.Visible;
             return;
         }
+        // Changer de flux ferme le fichier d'enregistrement en cours.
+        if (_recPath != null) EndRecordingState();
+        _resumeAtMs = 0;
         try
         {
-            using var media = new Media(_libVlc, new Uri(url));
-            _player.Play(media);
+            StartMedia(url, null);
         }
         catch (Exception ex)
         {
@@ -159,6 +180,8 @@ public partial class MainWindow : Window
             BufferText.Visibility = Visibility.Visible;
             return;
         }
+        _currentUrl = url;
+        _currentTitle = title;
         _hasMedia = true;
         Idle.Visibility = Visibility.Collapsed;
         TitleText.Text = title;
@@ -173,13 +196,143 @@ public partial class MainWindow : Window
     {
         if (e.PropertyName == nameof(MainViewModel.NowSubtitle))
             SubtitleText.Text = _vm.NowSubtitle;
-        else if (e.PropertyName == nameof(MainViewModel.IsGuide))
-            // La superposition du lecteur est une fenêtre séparée : on la masque pour dégager la grille.
-            Overlay.Visibility = _vm.IsGuide ? Visibility.Collapsed : Visibility.Visible;
+        else if (e.PropertyName == nameof(MainViewModel.IsPlayerHidden))
+            // La superposition du lecteur est une fenêtre séparée : on la masque pour dégager le guide / la liste.
+            Overlay.Visibility = _vm.IsPlayerHidden ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    // ------------------------------------------------------------------ Enregistrement
+
+    /// <summary>Lance un média ; avec <paramref name="recordTo"/>, VLC affiche ET écrit le flux dans un fichier .ts (une seule connexion).</summary>
+    private void StartMedia(string url, string? recordTo)
+    {
+        using var media = new Media(_libVlc!, new Uri(url));
+        if (recordTo != null)
+            media.AddOption(":sout=#duplicate{dst=display,dst=std{access=file,mux=ts,dst=\"" + recordTo.Replace('\\', '/') + "\"}}");
+        _player!.Play(media);
+    }
+
+    private void Record_Click(object sender, RoutedEventArgs e) => ToggleRecord();
+
+    private void ToggleRecord()
+    {
+        if (_player == null || _libVlc == null || !_hasMedia || _currentUrl == null) return;
+        if (System.IO.File.Exists(_currentUrl)) { Toast("Rien à enregistrer : lecture d'un fichier local"); return; }
+
+        // VLC doit relancer le flux pour (dés)activer la copie vers le fichier : on reprend ensuite à la même position.
+        _resumeAtMs = _player.IsSeekable ? _player.Time : 0;
+        try
+        {
+            if (_recPath == null)
+            {
+                var path = RecordingService.NewPath(_vm.RecordingsDir, _currentTitle ?? "Enregistrement");
+                StartMedia(_currentUrl, path);
+                BeginRecordingState(path);
+            }
+            else
+            {
+                var done = System.IO.Path.GetFileName(_recPath);
+                EndRecordingState();
+                StartMedia(_currentUrl, null);
+                Toast("Enregistrement terminé : " + done);
+            }
+        }
+        catch (Exception ex)
+        {
+            EndRecordingState();
+            Toast("Enregistrement impossible : " + ex.Message);
+        }
+    }
+
+    private void BeginRecordingState(string path)
+    {
+        _recPath = path;
+        _recStart = DateTime.Now;
+        _recWarned = false;
+        RecDot.Fill = (Brush)new BrushConverter().ConvertFromString("#F85149")!;
+        RecBadge.Visibility = Visibility.Visible;
+        _vm.ActiveRecordingPath = path;
+        UpdateRecBadge();
+        _recTimer.Start();
+        Toast("Enregistrement démarré");
+    }
+
+    private void EndRecordingState()
+    {
+        _recTimer.Stop();
+        _recPath = null;
+        RecDot.Fill = Brushes.Transparent;
+        RecBadge.Visibility = Visibility.Collapsed;
+        _vm.ActiveRecordingPath = null;
+    }
+
+    private void UpdateRecBadge()
+    {
+        if (_recPath == null) return;
+        var elapsed = DateTime.Now - _recStart;
+        long size = 0;
+        try { size = new System.IO.FileInfo(_recPath).Length; } catch { }
+        RecText.Text = $"REC  {(int)elapsed.TotalHours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}  ·  {RecordingService.FormatSize(size)}";
+        RecBlink.Opacity = elapsed.Seconds % 2 == 0 ? 1 : 0.25;
+
+        if (!_recWarned && size == 0 && elapsed.TotalSeconds > 8)
+        {
+            _recWarned = true;
+            Toast("Aucune donnée enregistrée pour l'instant — le flux est peut-être indisponible");
+        }
+    }
+
+    /// <summary>Après un redémarrage du flux (début/fin d'enregistrement), reprend la lecture à la position d'avant.</summary>
+    private void ResumeIfNeeded()
+    {
+        // Réessayé à chaque mise à jour du temps tant que le flux n'est pas « seekable ».
+        if (_resumeAtMs <= 0 || _player == null || !_player.IsSeekable || _player.Length <= 0) return;
+        var t = _resumeAtMs;
+        _resumeAtMs = 0;
+        _player.Time = t;
+    }
+
+    // ---- Onglet Enregistrements ----
+
+    private void OpenRecDir_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(_vm.RecordingsDir);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_vm.RecordingsDir) { UseShellExecute = true });
+        }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Dossier", MessageBoxButton.OK, MessageBoxImage.Warning); }
+    }
+
+    private void ChooseRecDir_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "Dossier des enregistrements", InitialDirectory = _vm.RecordingsDir };
+        if (dlg.ShowDialog(this) == true) _vm.SetRecordingsDir(dlg.FolderName);
+    }
+
+    private void RecItem_DoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (IsInside<Button>(e.OriginalSource as DependencyObject)) return;
+        if (sender is ListBoxItem { DataContext: RecordingFile f }) { e.Handled = true; _vm.PlayRecording(f); }
+    }
+
+    private void RecPlay_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: RecordingFile f }) _vm.PlayRecording(f);
+    }
+
+    private void RecDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: RecordingFile f }) return;
+        if (MessageBox.Show(this, $"Supprimer définitivement « {f.Name} » ({f.SizeText}) ?", "Supprimer l'enregistrement",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        var err = _vm.DeleteRecording(f);
+        if (err != null) MessageBox.Show(this, err, "Suppression impossible", MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
     private void ShowIdle()
     {
+        if (_recPath != null) EndRecordingState();
         _hasMedia = false;
         Idle.Visibility = Visibility.Visible;
         Controls.Visibility = Visibility.Collapsed;
@@ -259,6 +412,7 @@ public partial class MainWindow : Window
     private async void Toast(string text)
     {
         SubtitleText.Text = text;
+        ShowControls();
         await Task.Delay(2500);
         SubtitleText.Text = _vm.NowSubtitle;
     }
@@ -268,6 +422,7 @@ public partial class MainWindow : Window
     private void UpdateSeek()
     {
         if (_player == null) return;
+        ResumeIfNeeded();
         var len = _player.Length;
         var show = _hasMedia && len > 0 && _player.IsSeekable;
         SeekRow.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
@@ -341,6 +496,7 @@ public partial class MainWindow : Window
             case Key.F11: ToggleFullscreen(); break;
             case Key.Escape: if (_fullscreen) ToggleFullscreen(); else return; break;
             case Key.M: ToggleMute(); break;
+            case Key.R: ToggleRecord(); break;
             case Key.Up: VolumeSlider.Value = Math.Min(100, VolumeSlider.Value + 5); break;
             case Key.Down: VolumeSlider.Value = Math.Max(0, VolumeSlider.Value - 5); break;
             case Key.Left: if (_player is { IsSeekable: true }) _player.Time -= 10_000; else return; break;

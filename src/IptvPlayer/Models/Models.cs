@@ -141,6 +141,18 @@ public sealed class EpgEntry
     [JsonIgnore] public string Display => $"{Start:HH:mm}-{End:HH:mm}  {Title}";
 }
 
+/// <summary>Fichier d'enregistrement (.ts) listé dans l'onglet Enregistrements.</summary>
+public sealed class RecordingFile
+{
+    public string Path { get; set; } = "";
+    public string Name { get; set; } = "";
+    public DateTime Date { get; set; }
+    public long Size { get; set; }
+    public bool IsActive { get; set; }
+    public string SizeText => Services.RecordingService.FormatSize(Size);
+    public string DateText => Date.ToString("ddd d MMM · HH:mm", System.Globalization.CultureInfo.CurrentCulture);
+}
+
 /// <summary>Ligne du guide TV : une chaîne et ses programmes.</summary>
 public sealed class GuideRow
 {
