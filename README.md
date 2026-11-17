@@ -2,7 +2,12 @@
 
 # IPTV Player
 
-Lecteur IPTV Windows autonome (WPF / .NET 9) avec **VLC embarqué** (LibVLCSharp).
+Lecteur IPTV avec **VLC embarqué** : application **Windows** autonome (WPF / .NET 9, LibVLCSharp) et application **Android / Android TV** (Kotlin, Jetpack Compose, libVLC), qui peuvent se piloter et se synchroniser sur le réseau local.
+
+| Plateforme | Dossier | Compiler / installer |
+|---|---|---|
+| Windows | `src/IptvPlayer` | [section ci-dessous](#compiler-et-installer-windows) |
+| Android / Android TV | `android/` | [section ci-dessous](#compiler-et-installer-android) · détails dans [`android/README.md`](android/README.md) |
 
 ## Fonctionnalités
 
@@ -19,14 +24,44 @@ Lecteur IPTV Windows autonome (WPF / .NET 9) avec **VLC embarqué** (LibVLCSharp
 - Raccourcis : `Espace` pause · `F` / `F11` plein écran · `Échap` quitter le plein écran · `M` muet · `↑ ↓` volume · `← →` ±10 s · double-clic sur la vidéo = plein écran.
 - Performances : catalogue mis en cache (JSON gzip) → affichage instantané au lancement, rafraîchi en arrière-plan ; listes virtualisées (des dizaines de milliers de chaînes) ; décodage matériel VLC ; initialisation de VLC en arrière-plan.
 
-## Compiler
+## Compiler et installer (Windows)
+
+Prérequis : **.NET 9 SDK** et Windows 10/11 x64.
 
 ```powershell
-./build.ps1
+./build.ps1                 # -> dist\IptvPlayer.exe
 ```
 
-Produit **un seul fichier** : `dist\IptvPlayer.exe` (~186 Mo) avec le runtime .NET, WPF et le moteur VLC embarqués.
+Produit **un seul fichier** : `dist\IptvPlayer.exe` (~186 Mo) avec le runtime .NET, WPF et le moteur VLC embarqués. Aucune installation : copier le fichier où l'on veut et le lancer.
 Au premier lancement, VLC est extrait (quelques secondes) dans `%LocalAppData%\IptvPlayer\libvlc-<version>` ; les lancements suivants sont immédiats.
+Pour désinstaller : supprimer l'exécutable, `%AppData%\IptvPlayer` (données) et `%LocalAppData%\IptvPlayer` (moteur VLC extrait).
+
+Pour compiler sans produire l'exécutable unique (développement) : `dotnet build src/IptvPlayer/IptvPlayer.csproj -o <dossier-temporaire>`.
+La première fois que l'on utilise « Partager ma configuration », Windows peut demander d'autoriser l'application sur les réseaux privés : accepter.
+
+## Compiler et installer (Android)
+
+Résumé (détails, prérequis, émulateur et dépannage : [`android/README.md`](android/README.md)) :
+
+```powershell
+. .\tools\android-env.ps1          # une fois par fenêtre PowerShell
+cd android
+
+# --- APK de test (signé avec la clé de débogage) ---
+.\gradlew.bat assembleDebug
+adb install -r app\build\outputs\apk\debug\app-arm64-v8a-debug.apk     # téléphone / TV réels (débogage USB activé)
+adb install -r app\build\outputs\apk\debug\app-x86_64-debug.apk        # émulateur
+
+# --- APK de distribution : créer d'abord une clé et android\keystore.properties (voir android/README.md §4) ---
+.\gradlew.bat assembleRelease
+adb install -r app\build\outputs\apk\release\app-arm64-v8a-release.apk
+
+# --- Tests unitaires ---
+.\gradlew.bat testDebugUnitTest
+```
+
+Si une version signée autrement est déjà installée (debug ↔ release), la désinstaller d'abord (`adb uninstall app.iptvplayer`) ; les appareils déjà appairés devront alors être appairés à nouveau.
+**Avant de diffuser un APK**, recompiler libVLC en LGPL (`tools/build-libvlc-lgpl.sh`, sous WSL) : le paquet officiel contient du code GPL (x264) ; voir `android/README.md` §5.
 
 ## Licences
 
@@ -35,6 +70,7 @@ Au premier lancement, VLC est extrait (quelques secondes) dans `%LocalAppData%\I
   textes dans [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) et `LICENSES/` (aussi dans l'appli : Paramètres → À propos).
 * Le moteur VLC embarqué **ne contient que des plugins LGPL** : `build.ps1` exclut automatiquement les plugins GPL (x264, lua, etc.).
 * Remplacer libVLC (exigence LGPL) : placer un dossier `libvlc` (avec `libvlc.dll`, `libvlccore.dll`, `plugins\`) à côté de `IptvPlayer.exe`.
+* **Android** : libVLC y est recompilée en **LGPLv3** (sans x264 ni autre composant GPL) à partir des sources de VideoLAN ; composants Apache-2.0 (AndroidX, Compose, Kotlin, Coil, ZXing). Détail : `android/app/src/main/assets/THIRD_PARTY_NOTICES.md` (affiché dans l'appli). Windows : QRCoder (MIT) pour le QR code de partage.
 
 ## Logo
 
@@ -43,7 +79,7 @@ Source : `assets/logo.svg`. Les fichiers `.ico` / `.png` de l'application se ré
 
 ## Contrôle d'appareils Android
 
-Réglages ▸ « Télécommande… » : découvre (mDNS) ou accepte une adresse, appaire un téléphone / une TV Android par PIN, puis le pilote ; le bouton « Envoyer vers » du lecteur lui transmet la lecture en cours. Le PC n'accepte aucune connexion entrante. Protocole : `docs/protocole-controle-v1.md`.
+Réglages ▸ « Télécommande… » : découvre (mDNS) ou accepte une adresse, appaire un téléphone / une TV Android par PIN, puis le pilote ; le bouton « Envoyer vers » du lecteur lui transmet la lecture en cours. Le PC n'accepte aucune connexion entrante, sauf pendant la fenêtre « Partager ma configuration » (serveur éphémère + QR code pour configurer un nouvel appareil Android). Synchronisation des favoris / historique / réglages (et comptes, en option) depuis cette même fenêtre. Protocole : `docs/protocole-controle-v1.md`.
 
 ## Données utilisateur
 
