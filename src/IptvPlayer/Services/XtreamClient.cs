@@ -151,7 +151,7 @@ public sealed class XtreamClient
                 Id = id,
                 Season = int.TryParse(Str(e, "season"), out var s) ? s : 0,
                 Number = int.TryParse(Str(e, "episode_num"), out var n) ? n : 0,
-                Title = Str(e, "title"),
+                Title = CleanEpisodeTitle(Str(e, "title")),
                 Url = $"{_base}/series/{Uri.EscapeDataString(_user)}/{Uri.EscapeDataString(_pass)}/{id}.{ext}",
             });
         }
@@ -179,6 +179,15 @@ public sealed class XtreamClient
         catch (OperationCanceledException) { throw; }
         catch { /* EPG facultatif */ }
         return res;
+    }
+
+    /// <summary>« Série - S02E01 - Titre » → « Titre » (la saison/l'épisode sont déjà affichés à part).</summary>
+    private static string CleanEpisodeTitle(string title)
+    {
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(
+            title, @"^(?:.*?\s[-–]\s)?S\d{1,3}\s?E\d{1,4}\s*[-–:]?\s*", "",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+        return cleaned.Length > 0 ? cleaned : title;
     }
 
     private static string DecodeB64(string s)

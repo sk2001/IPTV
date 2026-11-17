@@ -43,6 +43,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = _vm;
 
+        Overlay.Background = Brushes.Black;   // état initial : rien en lecture
         _vm.PlayRequested += OnPlayRequested;
         _vm.EpisodePicker = (item, eps) =>
         {
@@ -120,7 +121,7 @@ public partial class MainWindow : Window
             player.Playing += (_, _) => Ui(() => { PlayBtn.Content = ""; BufferText.Visibility = Visibility.Collapsed; });
             player.Paused += (_, _) => Ui(() => { PlayBtn.Content = ""; ShowControls(); });
             player.EndReached += (_, _) => Ui(ShowIdle);
-            player.EncounteredError += (_, _) => Ui(() => { BufferText.Text = "Erreur de lecture — flux indisponible"; BufferText.Visibility = Visibility.Visible; });
+            player.EncounteredError += (_, _) => Ui(() => { Overlay.Background = Brushes.Black; BufferText.Text = "Erreur de lecture — flux indisponible"; BufferText.Visibility = Visibility.Visible; });
             player.Buffering += (_, a) => Ui(() =>
             {
                 if (a.Cache < 100) { BufferText.Text = $"Mise en mémoire tampon… {a.Cache:0}%"; BufferText.Visibility = Visibility.Visible; }
@@ -183,6 +184,7 @@ public partial class MainWindow : Window
         _currentUrl = url;
         _currentTitle = title;
         _hasMedia = true;
+        Overlay.Background = OverlayPlaying;
         Idle.Visibility = Visibility.Collapsed;
         TitleText.Text = title;
         SubtitleText.Text = "";
@@ -330,10 +332,16 @@ public partial class MainWindow : Window
         if (err != null) MessageBox.Show(this, err, "Suppression impossible", MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
+    // Superposition quasi transparente (clics captés) pendant la lecture ; noire au repos pour masquer
+    // le fond gris par défaut de la zone vidéo native.
+    private static readonly Brush OverlayPlaying = Freeze(new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)));
+    private static Brush Freeze(SolidColorBrush b) { b.Freeze(); return b; }
+
     private void ShowIdle()
     {
         if (_recPath != null) EndRecordingState();
         _hasMedia = false;
+        Overlay.Background = Brushes.Black;
         Idle.Visibility = Visibility.Visible;
         Controls.Visibility = Visibility.Collapsed;
         TopBar.Visibility = Visibility.Collapsed;

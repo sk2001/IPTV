@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.png" alt="Logo IPTV Player" width="120"></p>
+
 # IPTV Player
 
 Lecteur IPTV Windows autonome (WPF / .NET 9) avec **VLC embarqué** (LibVLCSharp).
@@ -21,6 +23,11 @@ Lecteur IPTV Windows autonome (WPF / .NET 9) avec **VLC embarqué** (LibVLCSharp
 
 Produit **un seul fichier** : `dist\IptvPlayer.exe` (~186 Mo) avec le runtime .NET, WPF et le moteur VLC embarqués.
 Au premier lancement, VLC est extrait (quelques secondes) dans `%LocalAppData%\IptvPlayer\libvlc-<version>` ; les lancements suivants sont immédiats.
+
+## Logo
+
+Source : `assets/logo.svg`. Les fichiers `.ico` / `.png` de l'application se régénèrent avec
+`powershell.exe -STA -File tools\make-icon.ps1` (à relancer si le dessin change dans le script).
 
 ## Données utilisateur
 

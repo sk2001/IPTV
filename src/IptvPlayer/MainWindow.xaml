@@ -5,14 +5,13 @@
         xmlns:m="clr-namespace:IptvPlayer.Models"
         xmlns:local="clr-namespace:IptvPlayer"
         xmlns:ctl="clr-namespace:IptvPlayer.Controls"
-        Title="IPTV Player" Width="1360" Height="820" MinWidth="1000" MinHeight="600"
+        Title="IPTV Player" Icon="Assets/app.ico" Width="1360" Height="820" MinWidth="1000" MinHeight="600"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgBrush}" Foreground="{StaticResource TextBrush}"
         FontFamily="{StaticResource UiFont}" FontSize="13"
         UseLayoutRounding="True" TextOptions.TextFormattingMode="Display">
 
     <Window.Resources>
-        <local:ImageUrlConverter x:Key="ImgConv"/>
         <BooleanToVisibilityConverter x:Key="B2V"/>
 
         <DataTemplate x:Key="GuideRowTemplate" DataType="{x:Type m:GuideRow}">
@@ -23,7 +22,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" Margin="4,0,8,0" VerticalAlignment="Center">
                     <Border Width="36" Height="36" CornerRadius="8" Background="{StaticResource Surface2Brush}" ClipToBounds="True">
-                        <Image Source="{Binding Channel.Logo, Converter={StaticResource ImgConv}, IsAsync=True}"
+                        <Image local:ImageLoader.Url="{Binding Channel.Logo}"
                                Stretch="Uniform" Margin="3" RenderOptions.BitmapScalingMode="LowQuality"/>
                     </Border>
                     <TextBlock Text="{Binding Channel.Name}" Width="148" Margin="10,0,0,0" VerticalAlignment="Center"
@@ -43,7 +42,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <Border Width="42" Height="42" CornerRadius="8" Background="{StaticResource Surface2Brush}" ClipToBounds="True">
-                    <Image Source="{Binding Logo, Converter={StaticResource ImgConv}, IsAsync=True}"
+                    <Image local:ImageLoader.Url="{Binding Logo}"
                            Stretch="Uniform" Margin="3" RenderOptions.BitmapScalingMode="LowQuality"/>
                 </Border>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,6,0">
@@ -94,6 +93,8 @@
         <Border x:Name="NavPane" Background="{StaticResource SurfaceBrush}">
             <DockPanel LastChildFill="False">
                 <StackPanel DockPanel.Dock="Top" Margin="0,14,0,0">
+                    <Image Source="Assets/logo.png" Width="42" Height="42" Margin="0,0,0,12" HorizontalAlignment="Center"
+                           RenderOptions.BitmapScalingMode="HighQuality" ToolTip="IPTV Player"/>
                     <RadioButton Style="{StaticResource NavButton}" Content="Live" Tag="&#xE7F4;" IsChecked="{Binding IsLive, Mode=TwoWay}" GroupName="nav"/>
                     <RadioButton Style="{StaticResource NavButton}" Content="Guide" Tag="&#xE787;" IsChecked="{Binding IsGuideNav, Mode=TwoWay}" GroupName="nav"/>
                     <RadioButton Style="{StaticResource NavButton}" Content="Films" Tag="&#xE714;" IsChecked="{Binding IsMovies, Mode=TwoWay}" GroupName="nav"/>
