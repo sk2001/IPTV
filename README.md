@@ -11,6 +11,8 @@ Lecteur IPTV Windows autonome (WPF / .NET 9) avec **VLC embarqué** (LibVLCSharp
 - Live, Films, Séries (choix de la saison / de l'épisode), catégories, recherche instantanée, favoris.
 - **Guide TV** : grille horaire (chaînes × programmes) avec trait « maintenant », infobulle de description, navigation ±2 h (boutons, `←` `→`, Maj + molette), filtre par catégorie et recherche, double-clic pour regarder. La liste des chaînes affiche aussi l'émission en cours avec sa progression. Source : `xmltv.php` (Xtream) ou `url-tvg` / `x-tvg-url` (M3U, URL ou fichier local) ; rapprochement par `tvg-id` puis par nom de chaîne ; mis en cache 6 h.
 - **Enregistrement** : bouton ● du lecteur (ou touche `R`) pour enregistrer le flux en cours en `.ts` (VLC écrit le fichier tout en l'affichant : une seule connexion au fournisseur). Badge `REC` avec durée et taille. L'onglet *Enreg.* liste les fichiers (lire, supprimer, ouvrir ou changer le dossier ; par défaut `Vidéos\IPTV Recordings`). Changer de chaîne ou quitter arrête l'enregistrement (confirmation à la fermeture).
+- **Paramètres** (engrenage de la barre latérale) : langue audio préférée pour les films et séries (anglais par défaut), langue des sous-titres, langue audio des chaînes live (« Auto » par défaut), reprise de lecture, effacement de l'historique. La langue est transmise à VLC puis complétée en choisissant la piste dont le nom contient la langue (ex. « English »), pour les fournisseurs qui ne renseignent pas les métadonnées.
+- **Historique de visionnage** (films et séries, par compte, `history.json`) : catégorie « ↺ Historique » dans Films / Séries (`Suppr` retire un élément), mention « ✓ Vu » / « ▶ 34 % » avec barre de progression dans les listes, **reprise automatique** là où l'on s'est arrêté, et pour les séries : épisodes vus / entamés dans la liste des épisodes, épisode suivant présélectionné, bouton « Marquer vu / non vu ». Un titre est considéré vu à 92 %.
 - Lecteur VLC : barre de progression (VOD), volume, muet, pistes audio / sous-titres, plein écran.
 - Raccourcis : `Espace` pause · `F` / `F11` plein écran · `Échap` quitter le plein écran · `M` muet · `↑ ↓` volume · `← →` ±10 s · double-clic sur la vidéo = plein écran.
 - Performances : catalogue mis en cache (JSON gzip) → affichage instantané au lancement, rafraîchi en arrière-plan ; listes virtualisées (des dizaines de milliers de chaînes) ; décodage matériel VLC ; initialisation de VLC en arrière-plan.
@@ -31,5 +33,5 @@ Source : `assets/logo.svg`. Les fichiers `.ico` / `.png` de l'application se ré
 
 ## Données utilisateur
 
-`%AppData%\IptvPlayer\` : `accounts.json`, `state.json` (favoris, volume, dernier compte), `cache\` (catalogues). `%LocalAppData%\IptvPlayer\libvlc-*` : moteur VLC extrait.
+`%AppData%\IptvPlayer\` : `accounts.json`, `state.json` (favoris, volume, dernier compte, préférences de langue), `history.json` (historique de visionnage), `cache\` (catalogues). `%LocalAppData%\IptvPlayer\libvlc-*` : moteur VLC extrait.
 

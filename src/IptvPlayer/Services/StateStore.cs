@@ -9,6 +9,12 @@ public sealed class AppState
     public HashSet<string> Favorites { get; set; } = new();
     public int Volume { get; set; } = 80;
     public string? RecordingsDir { get; set; }
+
+    // Préférences de lecture (codes de Languages.All ; vide = automatique)
+    public string AudioLangVod { get; set; } = "en";      // films & séries
+    public string AudioLangLive { get; set; } = "";       // chaînes live
+    public string SubLangVod { get; set; } = "";          // sous-titres films & séries ("" = aucun)
+    public bool ResumePlayback { get; set; } = true;      // reprendre là où on s'est arrêté
 }
 
 public static class StateStore

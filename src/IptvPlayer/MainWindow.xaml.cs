@@ -9,6 +9,7 @@ using IptvPlayer.Models;
 using IptvPlayer.Services;
 using IptvPlayer.ViewModels;
 using LibVLCSharp.Shared;
+using LibVLCSharp.Shared.Structures;
 using MediaPlayer = LibVLCSharp.Shared.MediaPlayer;
 
 namespace IptvPlayer;
@@ -30,6 +31,15 @@ public partial class MainWindow : Window
     private DateTime _recStart;
     private bool _recWarned;
     private long _resumeAtMs;
+    private bool _resumeToast;
+
+    // Historique de visionnage + langue des pistes
+    private WatchContext? _watch;
+    private long _lastPosMs, _lastLenMs;
+    private DateTime _lastReport = DateTime.MinValue;
+    private ContentKind _playKind = ContentKind.Live;
+    private bool _trackPrefPending, _audioDone, _subDone;
+
     private readonly DispatcherTimer _recTimer = new() { Interval = TimeSpan.FromSeconds(1) };
 
     private bool _fullscreen;
@@ -45,9 +55,9 @@ public partial class MainWindow : Window
 
         Overlay.Background = Brushes.Black;   // état initial : rien en lecture
         _vm.PlayRequested += OnPlayRequested;
-        _vm.EpisodePicker = (item, eps) =>
+        _vm.EpisodePicker = (item, eps, suggested, toggleWatched) =>
         {
-            var w = new EpisodesWindow(item, eps) { Owner = this };
+            var w = new EpisodesWindow(item, eps, suggested, toggleWatched) { Owner = this };
             return w.ShowDialog() == true ? w.Selected : null;
         };
         _vm.PropertyChanged += OnVmPropertyChanged;
@@ -80,7 +90,7 @@ public partial class MainWindow : Window
 
     // ------------------------------------------------------------------ VLC
 
-    private (string url, string title)? _pending;
+    private (string url, string title, WatchContext? ctx)? _pending;
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -120,7 +130,11 @@ public partial class MainWindow : Window
             player.Playing += (_, _) => Ui(ResumeIfNeeded);
             player.Playing += (_, _) => Ui(() => { PlayBtn.Content = ""; BufferText.Visibility = Visibility.Collapsed; });
             player.Paused += (_, _) => Ui(() => { PlayBtn.Content = ""; ShowControls(); });
-            player.EndReached += (_, _) => Ui(ShowIdle);
+            player.EndReached += (_, _) => Ui(() =>
+            {
+                if (_watch != null && _lastLenMs > 0) _lastPosMs = _lastLenMs;   // fin atteinte → marqué comme vu
+                ShowIdle();
+            });
             player.EncounteredError += (_, _) => Ui(() => { Overlay.Background = Brushes.Black; BufferText.Text = "Erreur de lecture — flux indisponible"; BufferText.Visibility = Visibility.Visible; });
             player.Buffering += (_, a) => Ui(() =>
             {
@@ -137,7 +151,7 @@ public partial class MainWindow : Window
             if (_pending is { } p)
             {
                 _pending = null;
-                OnPlayRequested(p.url, p.title);
+                OnPlayRequested(p.url, p.title, p.ctx);
             }
         }
         catch (Exception ex)
@@ -149,6 +163,8 @@ public partial class MainWindow : Window
 
     private void OnClosed(object? sender, EventArgs e)
     {
+        FlushWatch();
+        _vm.FlushHistory();
         _vm.State.Volume = (int)VolumeSlider.Value;
         StateStore.Save(_vm.State);
         var p = _player; var l = _libVlc;
@@ -156,11 +172,11 @@ public partial class MainWindow : Window
         Task.Run(() => { try { p?.Stop(); p?.Dispose(); l?.Dispose(); } catch { } }).Wait(1500);
     }
 
-    private void OnPlayRequested(string url, string title)
+    private void OnPlayRequested(string url, string title, WatchContext? ctx)
     {
         if (_player == null || _libVlc == null)
         {
-            _pending = (url, title);
+            _pending = (url, title, ctx);
             _hasMedia = true;
             Idle.Visibility = Visibility.Collapsed;
             TitleText.Text = title;
@@ -170,7 +186,14 @@ public partial class MainWindow : Window
         }
         // Changer de flux ferme le fichier d'enregistrement en cours.
         if (_recPath != null) EndRecordingState();
-        _resumeAtMs = 0;
+        FlushWatch();                                  // enregistre la progression du média précédent
+        _watch = ctx;
+        _playKind = ctx?.Kind ?? ContentKind.Live;
+        _resumeAtMs = ctx?.ResumeMs ?? 0;
+        _resumeToast = _resumeAtMs > 0;
+        _lastPosMs = _lastLenMs = 0;
+        _lastReport = DateTime.Now;
+        _trackPrefPending = true; _audioDone = _subDone = false;
         try
         {
             StartMedia(url, null);
@@ -209,6 +232,13 @@ public partial class MainWindow : Window
     private void StartMedia(string url, string? recordTo)
     {
         using var media = new Media(_libVlc!, new Uri(url));
+
+        // Langue préférée : VLC choisit d'après les métadonnées du flux (complété par ApplyTrackPrefs).
+        var audio = Languages.VlcCodes(_playKind == ContentKind.Live ? _vm.State.AudioLangLive : _vm.State.AudioLangVod);
+        if (audio != null) media.AddOption(":audio-language=" + audio);
+        if (_playKind != ContentKind.Live && Languages.VlcCodes(_vm.State.SubLangVod) is { } subs)
+            media.AddOption(":sub-language=" + subs);
+
         if (recordTo != null)
             media.AddOption(":sout=#duplicate{dst=display,dst=std{access=file,mux=ts,dst=\"" + recordTo.Replace('\\', '/') + "\"}}");
         _player!.Play(media);
@@ -292,6 +322,79 @@ public partial class MainWindow : Window
         var t = _resumeAtMs;
         _resumeAtMs = 0;
         _player.Time = t;
+        if (_resumeToast) { _resumeToast = false; Toast("Reprise à " + Fmt(t)); }
+    }
+
+    // ------------------------------------------------------------------ Historique & langue des pistes
+
+    /// <summary>Enregistre la dernière position connue du média en cours (fin de lecture, changement de média, fermeture).</summary>
+    private void FlushWatch()
+    {
+        var w = _watch;
+        _watch = null;
+        if (w == null || _lastLenMs <= 0 || _lastPosMs < 10_000) return;
+        _vm.ReportProgress(w, _lastPosMs, _lastLenMs, flush: true);
+        _lastPosMs = _lastLenMs = 0;
+    }
+
+    private void TrackProgress()
+    {
+        if (_watch is not { TracksHistory: true } || _player == null || _resumeAtMs > 0) return;
+        var len = _player.Length;
+        if (!_player.IsSeekable || len <= 0) return;
+
+        _lastPosMs = _player.Time;
+        _lastLenMs = len;
+        if (_lastPosMs >= 10_000 && DateTime.Now - _lastReport > TimeSpan.FromSeconds(10))
+        {
+            _lastReport = DateTime.Now;
+            _vm.ReportProgress(_watch, _lastPosMs, _lastLenMs, flush: false);
+        }
+    }
+
+    /// <summary>
+    /// Complète l'option VLC : certains fournisseurs ne renseignent pas la langue des pistes, mais leur nom
+    /// (« Piste 2 - [English] ») la contient. On essaie pendant les premières secondes (les sous-titres arrivent parfois plus tard).
+    /// </summary>
+    private void ApplyTrackPrefs()
+    {
+        if (!_trackPrefPending || _player == null || !_player.IsPlaying) return;
+        var t = _player.Time;
+        if (t < 1200) return;
+        if (t > 20_000) { _trackPrefPending = false; return; }
+
+        var live = _playKind == ContentKind.Live;
+        var audioLang = live ? _vm.State.AudioLangLive : _vm.State.AudioLangVod;
+        var subLang = live ? "" : _vm.State.SubLangVod;
+
+        if (!_audioDone)
+        {
+            var tracks = (_player.AudioTrackDescription ?? Array.Empty<TrackDescription>()).Where(x => x.Id >= 0).ToArray();
+            if (string.IsNullOrEmpty(audioLang) || tracks.Length < 2) _audioDone = tracks.Length >= 2 || string.IsNullOrEmpty(audioLang);
+            else
+            {
+                _audioDone = true;
+                var current = tracks.FirstOrDefault(x => x.Id == _player.AudioTrack);
+                if (current.Name == null || !Languages.NameMatches(audioLang, current.Name))
+                {
+                    var match = tracks.FirstOrDefault(x => Languages.NameMatches(audioLang, x.Name));
+                    if (match.Name != null) { _player.SetAudioTrack(match.Id); Toast("Audio : " + match.Name); }
+                }
+            }
+        }
+
+        if (!_subDone)
+        {
+            if (string.IsNullOrEmpty(subLang)) _subDone = true;
+            else
+            {
+                var tracks = (_player.SpuDescription ?? Array.Empty<TrackDescription>()).Where(x => x.Id >= 0).ToArray();
+                var match = tracks.FirstOrDefault(x => Languages.NameMatches(subLang, x.Name));
+                if (match.Name != null) { _subDone = true; _player.SetSpu(match.Id); }
+            }
+        }
+
+        if (_audioDone && _subDone) _trackPrefPending = false;
     }
 
     // ---- Onglet Enregistrements ----
@@ -340,6 +443,7 @@ public partial class MainWindow : Window
     private void ShowIdle()
     {
         if (_recPath != null) EndRecordingState();
+        FlushWatch();
         _hasMedia = false;
         Overlay.Background = Brushes.Black;
         Idle.Visibility = Visibility.Visible;
@@ -431,6 +535,8 @@ public partial class MainWindow : Window
     {
         if (_player == null) return;
         ResumeIfNeeded();
+        TrackProgress();
+        ApplyTrackPrefs();
         var len = _player.Length;
         var show = _hasMedia && len > 0 && _player.IsSeekable;
         SeekRow.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
@@ -547,6 +653,13 @@ public partial class MainWindow : Window
 
     private void ItemList_KeyDown(object sender, KeyEventArgs e)
     {
+        // Suppr dans la catégorie Historique : retire le film / la série de l'historique.
+        if (e.Key == Key.Delete && _vm.SelectedCategory?.Id == MainViewModel.HistId && ItemList.SelectedItem is MediaItem h)
+        {
+            e.Handled = true;
+            _vm.RemoveFromHistory(h);
+            return;
+        }
         if (e.Key == Key.Enter && ItemList.SelectedItem is MediaItem item)
         {
             e.Handled = true;
@@ -567,6 +680,13 @@ public partial class MainWindow : Window
     {
         AccountPopup.IsOpen = false;
         OpenAccounts();
+    }
+
+    private void Settings_Click(object sender, RoutedEventArgs e)
+    {
+        var w = new SettingsWindow(_vm) { Owner = this };
+        w.ShowDialog();
+        if (w.OpenAccountsRequested) OpenAccounts();
     }
 
     private void OpenAccounts()

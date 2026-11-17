@@ -71,7 +71,20 @@ public sealed class MediaItem : CommunityToolkit.Mvvm.ComponentModel.ObservableO
         }
     }
 
-    /// <summary>Deuxième ligne de la liste : émission en cours (live) ou note (films/séries).</summary>
+    /// <summary>Historique de visionnage de ce film (ou dernier épisode regardé de cette série).</summary>
+    [JsonIgnore]
+    public WatchEntry? Watch
+    {
+        get
+        {
+            var h = Services.HistoryService.Current;
+            if (h == null || Kind == ContentKind.Live) return null;
+            var acc = Services.HistoryService.CurrentAccount;
+            return Kind == ContentKind.Movie ? h.Get(acc, ContentKind.Movie, Id) : h.LastForSeries(acc, Id);
+        }
+    }
+
+    /// <summary>Deuxième ligne de la liste : émission en cours (live) ; note + état de visionnage (films/séries).</summary>
     [JsonIgnore]
     public string? SubText
     {
@@ -82,15 +95,27 @@ public sealed class MediaItem : CommunityToolkit.Mvvm.ComponentModel.ObservableO
                 var n = NowEntry;
                 return n == null ? null : $"{n.Start:HH:mm}  {n.Title}";
             }
-            return string.IsNullOrWhiteSpace(Rating) ? null : "★ " + Rating;
+
+            var parts = new List<string>(2);
+            if (!string.IsNullOrWhiteSpace(Rating)) parts.Add("★ " + Rating);
+            var w = Watch;
+            if (w != null)
+            {
+                var state = w.Completed ? "✓" : w.InProgress ? $"▶ {w.Progress:P0}" : null;
+                if (Kind == ContentKind.Series) parts.Add($"S{w.Season:00}E{w.Number:00}" + (state != null ? " " + state : ""));
+                else if (state != null) parts.Add(w.Completed ? "✓ Vu" : state);
+            }
+            return parts.Count == 0 ? null : string.Join("  ·  ", parts);
         }
     }
 
+    /// <summary>Barre de progression : émission en cours (live) ou avancement du visionnage (films/séries).</summary>
     [JsonIgnore]
     public double NowProgress
     {
         get
         {
+            if (Kind != ContentKind.Live) return Watch is { InProgress: true } w ? w.Progress : 0;
             var n = NowEntry;
             if (n == null) return 0;
             var total = (n.End - n.Start).TotalSeconds;
@@ -98,7 +123,7 @@ public sealed class MediaItem : CommunityToolkit.Mvvm.ComponentModel.ObservableO
         }
     }
 
-    [JsonIgnore] public bool HasNow => NowEntry != null;
+    [JsonIgnore] public bool HasNow => Kind == ContentKind.Live ? NowEntry != null : Watch is { InProgress: true };
 
     public void RefreshEpg()
     {
@@ -108,14 +133,36 @@ public sealed class MediaItem : CommunityToolkit.Mvvm.ComponentModel.ObservableO
     }
 }
 
-public sealed class Episode
+public sealed class Episode : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
+    private bool _isWatched;
+    private double _progress;
+
     public string Id { get; set; } = "";
     public int Season { get; set; }
     public int Number { get; set; }
     public string Title { get; set; } = "";
     public string Url { get; set; } = "";
     public string Display => $"S{Season:00}E{Number:00} · {Title}";
+
+    /// <summary>Épisode déjà vu en entier.</summary>
+    public bool IsWatched
+    {
+        get => _isWatched;
+        set { if (SetProperty(ref _isWatched, value)) OnPropertyChanged(nameof(StatusText)); }
+    }
+
+    /// <summary>Avancement (0–1) d'un épisode entamé, pour proposer la reprise.</summary>
+    public double Progress
+    {
+        get => _progress;
+        set { if (SetProperty(ref _progress, value)) OnPropertyChanged(nameof(StatusText)); }
+    }
+
+    /// <summary>Position à reprendre (ms) ; renseignée par le ViewModel.</summary>
+    public long ResumeMs { get; set; }
+
+    public string StatusText => IsWatched ? "✓ Vu" : Progress > 0 ? $"▶ {Progress:P0}" : "";
 }
 
 public sealed class Catalog

@@ -12,9 +12,13 @@ public sealed partial class MainViewModel : ObservableObject
 {
     public const string AllId = "__all__";
     public const string FavId = "__fav__";
+    public const string HistId = "__hist__";
 
     private readonly AccountStore _store = new();
     private readonly AppState _state = StateStore.Load();
+
+    /// <summary>Historique de visionnage (films et séries).</summary>
+    public HistoryService History { get; } = new();
     private Catalog? _catalog;
     private CancellationTokenSource? _loadCts, _filterCts, _epgCts;
 
@@ -79,11 +83,11 @@ public sealed partial class MainViewModel : ObservableObject
     public bool IsSeries { get => Mode == NavMode.Series; set { if (value) Mode = NavMode.Series; } }
     public bool IsRecordingsNav { get => Mode == NavMode.Recordings; set { if (value) Mode = NavMode.Recordings; } }
 
-    /// <summary>Demande de lecture : (url, titre).</summary>
-    public event Action<string, string>? PlayRequested;
+    /// <summary>Demande de lecture : (url, titre, contexte de suivi — null pour live/enregistrements).</summary>
+    public event Action<string, string, WatchContext?>? PlayRequested;
 
-    /// <summary>Délégué fourni par la vue pour choisir un épisode.</summary>
-    public Func<MediaItem, List<Episode>, Episode?>? EpisodePicker { get; set; }
+    /// <summary>Délégué fourni par la vue pour choisir un épisode (épisodes, suggestion, bascule « vu / non vu »).</summary>
+    public Func<MediaItem, List<Episode>, Episode?, Action<Episode, bool>, Episode?>? EpisodePicker { get; set; }
 
     public MainViewModel()
     {
@@ -133,6 +137,7 @@ public sealed partial class MainViewModel : ObservableObject
     partial void OnSelectedAccountChanged(Account? value)
     {
         _state.LastAccountId = value?.Id;
+        HistoryService.CurrentAccount = value?.Id ?? Guid.Empty;
         StateStore.Save(_state);
         _ = LoadAccountAsync(value, force: false);
     }
@@ -226,8 +231,10 @@ public sealed partial class MainViewModel : ObservableObject
         var list = new List<Category>
         {
             new() { Id = FavId, Name = "★  Favoris", Kind = kind, Count = favs },
-            all,
         };
+        if (kind != ContentKind.Live)
+            list.Add(new Category { Id = HistId, Name = "↺  Historique", Kind = kind, Count = History.Recent(SelectedAccount?.Id ?? Guid.Empty, kind).Count });
+        list.Add(all);
         list.AddRange(_catalog.Categories.Where(c => c.Kind == kind));
         Categories = list;
         SelectedCategory = (keepId != null ? list.FirstOrDefault(c => c.Id == keepId) : null) ?? all;
@@ -243,6 +250,7 @@ public sealed partial class MainViewModel : ObservableObject
         var kind = CurrentKind;
         var catId = SelectedCategory?.Id ?? AllId;
         var query = SearchText.Trim().ToLowerInvariant();
+        var accountId = SelectedAccount?.Id ?? Guid.Empty;
 
         try
         {
@@ -250,7 +258,14 @@ public sealed partial class MainViewModel : ObservableObject
             var result = await Task.Run(() =>
             {
                 IEnumerable<MediaItem> q = catalog.Items.Where(i => i.Kind == kind);
-                if (catId == FavId) q = q.Where(i => i.IsFavorite);
+                if (catId == HistId)
+                {
+                    // Du plus récent au plus ancien, dans l'ordre de l'historique.
+                    var byId = new Dictionary<string, MediaItem>();
+                    foreach (var i in q) byId.TryAdd(i.Id, i);
+                    q = History.Recent(accountId, kind).Select(w => byId.GetValueOrDefault(w.ItemId)).Where(i => i != null)!;
+                }
+                else if (catId == FavId) q = q.Where(i => i.IsFavorite);
                 else if (catId != AllId) q = q.Where(i => i.CategoryId == catId);
                 if (query.Length > 0) q = q.Where(i => i.SearchKey.Contains(query));
                 return q.ToList();
@@ -290,7 +305,7 @@ public sealed partial class MainViewModel : ObservableObject
         Mode = NavMode.Live;
         _playing = null;
         NowSubtitle = "";
-        PlayRequested?.Invoke(file.Path, file.Name);
+        PlayRequested?.Invoke(file.Path, file.Name, null);
     }
 
     /// <summary>Supprime un enregistrement (refusé s'il est en cours). Retourne un message d'erreur ou null.</summary>
@@ -424,6 +439,7 @@ public sealed partial class MainViewModel : ObservableObject
         else if (_catalog == null) EmptyText = "";
         else if (Items.Count == 0)
             EmptyText = SelectedCategory?.Id == FavId ? "Aucun favori pour l'instant."
+                      : SelectedCategory?.Id == HistId ? "Rien dans l'historique pour l'instant.\nLes films et épisodes regardés apparaissent ici (Suppr pour en retirer un)."
                       : string.IsNullOrWhiteSpace(SearchText) ? "Aucun contenu dans cette section." : "Aucun résultat.";
         else EmptyText = "";
     }
@@ -448,11 +464,14 @@ public sealed partial class MainViewModel : ObservableObject
             {
                 var eps = await new XtreamClient(acc).GetEpisodesAsync(item.Id);
                 if (eps.Count == 0) { Status = "Aucun épisode trouvé."; return; }
-                var ep = EpisodePicker?.Invoke(item, eps);
+                var suggested = PrepareEpisodes(acc, item, eps);
+                var ep = EpisodePicker?.Invoke(item, eps, suggested, (e, watched) => SetEpisodeWatched(acc, item, e, watched));
                 if (ep == null) { Status = ""; return; }
                 NowSubtitle = "";
                 Status = "";
-                PlayRequested?.Invoke(ep.Url, $"{item.Name} — {ep.Display}");
+                _playing = null;
+                var ctx = MakeContext(acc, item, ep, _state.ResumePlayback ? ep.ResumeMs : 0);
+                PlayRequested?.Invoke(ep.Url, $"{item.Name} — {ep.Display}", ctx);
             }
             catch (Exception ex) { Status = "Erreur : " + ex.Message; }
             return;
@@ -461,7 +480,13 @@ public sealed partial class MainViewModel : ObservableObject
         if (string.IsNullOrEmpty(item.StreamUrl)) return;
         NowSubtitle = "";
         _playing = item;
-        PlayRequested?.Invoke(item.StreamUrl, item.Name);
+        WatchContext? movieCtx = null;
+        if (item.Kind == ContentKind.Movie)
+        {
+            var w = History.Get(acc.Id, ContentKind.Movie, item.Id);
+            movieCtx = MakeContext(acc, item, null, _state.ResumePlayback && w is { InProgress: true } ? w.PositionMs : 0);
+        }
+        PlayRequested?.Invoke(item.StreamUrl, item.Name, movieCtx);
         if (item.Kind == ContentKind.Live)
         {
             UpdateNowSubtitle();
@@ -469,6 +494,92 @@ public sealed partial class MainViewModel : ObservableObject
             if (NowSubtitle.Length == 0 && acc.Type == AccountType.Xtream)
                 _ = LoadShortEpgAsync(acc, item);
         }
+    }
+
+    // ---------------------------------------------------------------- Historique de visionnage
+
+    private static WatchContext MakeContext(Account acc, MediaItem item, Episode? ep, long resumeMs) => new()
+    {
+        AccountId = acc.Id,
+        Kind = item.Kind,
+        ItemId = item.Id,
+        EpisodeId = ep?.Id,
+        Season = ep?.Season ?? 0,
+        Number = ep?.Number ?? 0,
+        EpisodeTitle = ep?.Title,
+        Name = item.Name,
+        Logo = item.Logo,
+        ResumeMs = resumeMs,
+        Item = item,
+    };
+
+    /// <summary>Renseigne vu / avancement de chaque épisode et propose celui à regarder (en cours, sinon le suivant).</summary>
+    private Episode? PrepareEpisodes(Account acc, MediaItem item, List<Episode> eps)
+    {
+        var entries = History.EpisodesOf(acc.Id, item.Id).Where(e => e.EpisodeId != null).ToDictionary(e => e.EpisodeId!);
+        foreach (var ep in eps)
+        {
+            if (!entries.TryGetValue(ep.Id, out var w)) continue;
+            ep.IsWatched = w.Completed;
+            ep.Progress = w.InProgress ? w.Progress : 0;
+            ep.ResumeMs = w.InProgress ? w.PositionMs : 0;
+        }
+
+        var last = entries.Values.OrderByDescending(e => e.LastWatched).FirstOrDefault();
+        if (last == null) return eps[0];
+        var idx = eps.FindIndex(e => e.Id == last.EpisodeId);
+        if (idx < 0) return eps[0];
+        return last.InProgress ? eps[idx] : eps[Math.Min(idx + 1, eps.Count - 1)];
+    }
+
+    private void SetEpisodeWatched(Account acc, MediaItem item, Episode ep, bool watched)
+    {
+        History.SetWatched(MakeContext(acc, item, ep, 0), watched);
+        ep.IsWatched = watched;
+        ep.Progress = 0;
+        ep.ResumeMs = 0;
+        History.Save();
+        item.RefreshEpg();
+        RefreshHistoryCount();
+    }
+
+    /// <summary>Appelé par le lecteur : met à jour la position (flush = enregistrer sur disque et rafraîchir la liste).</summary>
+    public void ReportProgress(WatchContext ctx, long positionMs, long durationMs, bool flush)
+    {
+        if (!ctx.TracksHistory || durationMs <= 0) return;
+        History.Update(ctx, positionMs, durationMs);
+        ctx.Item?.RefreshEpg();
+        if (!flush) return;
+        History.Save();
+        RefreshHistoryCount();
+        if (SelectedCategory?.Id == HistId) ApplyFilter(immediate: true);
+    }
+
+    public void FlushHistory() => History.Save();
+
+    private void RefreshHistoryCount()
+    {
+        var h = Categories.FirstOrDefault(c => c.Id == HistId);
+        if (h != null) h.Count = History.Recent(SelectedAccount?.Id ?? Guid.Empty, CurrentKind).Count;
+    }
+
+    /// <summary>Retire un film / une série de l'historique (touche Suppr dans la catégorie Historique).</summary>
+    public void RemoveFromHistory(MediaItem item)
+    {
+        if (SelectedAccount == null) return;
+        History.RemoveItem(SelectedAccount.Id, item.Kind, item.Id);
+        History.Save();
+        item.RefreshEpg();
+        RefreshHistoryCount();
+        if (SelectedCategory?.Id == HistId) ApplyFilter(immediate: true);
+    }
+
+    public void ClearHistory()
+    {
+        History.Clear();
+        foreach (var i in Items) i.RefreshEpg();
+        RefreshHistoryCount();
+        if (SelectedCategory?.Id == HistId) ApplyFilter(immediate: true);
     }
 
     private async Task LoadShortEpgAsync(Account acc, MediaItem item)
