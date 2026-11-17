@@ -88,6 +88,7 @@ public sealed class GuideStrip : FrameworkElement
     protected override void OnRender(DrawingContext dc)
     {
         double w = ActualWidth, h = ActualHeight;
+        if (w < 1 || h < 10) return;                                        // pas encore mesuré / fenêtre trop petite : rien à dessiner
         dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, w, h));   // zone cliquable
         var entries = Entries;
         var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
@@ -104,8 +105,9 @@ public sealed class GuideStrip : FrameworkElement
                 var x2 = (e.End - start).TotalMinutes * GuideStyle.PxPerMinute;
 
                 var left = Math.Max(0, x1);
-                var rect = new Rect(left + 1, 3, Math.Min(w, x2) - left - 2, h - 6);
-                if (rect.Width < 3) continue;
+                var rw = Math.Min(w, x2) - left - 2;
+                if (rw < 3) continue;                                        // Rect refuse une largeur négative
+                var rect = new Rect(left + 1, 3, rw, h - 6);
 
                 var isNow = e.Start <= now && e.End > now;
                 var isPast = e.End <= now;
@@ -174,6 +176,7 @@ public sealed class GuideRuler : FrameworkElement
     protected override void OnRender(DrawingContext dc)
     {
         double w = ActualWidth, h = ActualHeight;
+        if (w < 1 || h < 12) return;
         dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, w, h));
         var dpi = VisualTreeHelper.GetDpi(this).PixelsPerDip;
         var start = ViewStart;
