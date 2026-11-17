@@ -45,10 +45,10 @@ public sealed class XtreamClient
             if (doc.RootElement.TryGetProperty("user_info", out var ui))
             {
                 if (ui.TryGetProperty("auth", out var auth) && Str(auth) == "0")
-                    return "Identifiants refusés par le serveur.";
+                    return Localization.Loc.T("xtream.err.auth");
                 return null;
             }
-            return "Réponse inattendue du serveur.";
+            return Localization.Loc.T("xtream.err.unexpected");
         }
         catch (Exception ex) { return ex.Message; }
     }
@@ -71,7 +71,7 @@ public sealed class XtreamClient
         foreach (var t in tasks)
         {
             var (k, cats, items) = await t.ConfigureAwait(false);
-            progress?.Report(k.kind switch { ContentKind.Live => "Chaînes…", ContentKind.Movie => "Films…", _ => "Séries…" });
+            progress?.Report(Localization.Loc.T(k.kind switch { ContentKind.Live => "xtream.live", ContentKind.Movie => "xtream.movies", _ => "xtream.series" }));
 
             if (cats is not null)
             {

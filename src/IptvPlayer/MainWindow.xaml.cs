@@ -5,6 +5,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
+using IptvPlayer.Localization;
 using IptvPlayer.Models;
 using IptvPlayer.Services;
 using IptvPlayer.ViewModels;
@@ -77,8 +78,8 @@ public partial class MainWindow : Window
     private void OnClosing(object? sender, CancelEventArgs e)
     {
         if (_recPath == null) return;
-        var r = MessageBox.Show(this, "Un enregistrement est en cours. Quitter l'application l'arrêtera.\n\nQuitter quand même ?",
-            "Enregistrement en cours", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        var r = MessageBox.Show(this, Loc.T("quit.rec"),
+            Loc.T("quit.rec.title"), MessageBoxButton.YesNo, MessageBoxImage.Warning);
         if (r != MessageBoxResult.Yes) e.Cancel = true;
     }
 
@@ -135,10 +136,10 @@ public partial class MainWindow : Window
                 if (_watch != null && _lastLenMs > 0) _lastPosMs = _lastLenMs;   // fin atteinte → marqué comme vu
                 ShowIdle();
             });
-            player.EncounteredError += (_, _) => Ui(() => { Overlay.Background = Brushes.Black; BufferText.Text = "Erreur de lecture — flux indisponible"; BufferText.Visibility = Visibility.Visible; });
+            player.EncounteredError += (_, _) => Ui(() => { Overlay.Background = Brushes.Black; BufferText.Text = Loc.T("player.error"); BufferText.Visibility = Visibility.Visible; });
             player.Buffering += (_, a) => Ui(() =>
             {
-                if (a.Cache < 100) { BufferText.Text = $"Mise en mémoire tampon… {a.Cache:0}%"; BufferText.Visibility = Visibility.Visible; }
+                if (a.Cache < 100) { BufferText.Text = Loc.T("player.buffering", a.Cache); BufferText.Visibility = Visibility.Visible; }
                 else BufferText.Visibility = Visibility.Collapsed;
             });
             player.TimeChanged += (_, _) => Ui(UpdateSeek);
@@ -156,7 +157,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, "Impossible d'initialiser VLC :" + Environment.NewLine + ex.Message, "IPTV Player",
+            MessageBox.Show(this, Loc.T("player.vlcFail", ex.Message), "IPTV Player",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -180,7 +181,7 @@ public partial class MainWindow : Window
             _hasMedia = true;
             Idle.Visibility = Visibility.Collapsed;
             TitleText.Text = title;
-            BufferText.Text = "Initialisation du lecteur…";
+            BufferText.Text = Loc.T("player.initializing");
             BufferText.Visibility = Visibility.Visible;
             return;
         }
@@ -200,7 +201,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            BufferText.Text = "Erreur : " + ex.Message;
+            BufferText.Text = Loc.T("player.errorPrefix", ex.Message);
             BufferText.Visibility = Visibility.Visible;
             return;
         }
@@ -211,7 +212,7 @@ public partial class MainWindow : Window
         Idle.Visibility = Visibility.Collapsed;
         TitleText.Text = title;
         SubtitleText.Text = "";
-        BufferText.Text = "Connexion…";
+        BufferText.Text = Loc.T("player.connecting");
         BufferText.Visibility = Visibility.Visible;
         SeekRow.Visibility = Visibility.Collapsed;
         ShowControls();
@@ -249,7 +250,7 @@ public partial class MainWindow : Window
     private void ToggleRecord()
     {
         if (_player == null || _libVlc == null || !_hasMedia || _currentUrl == null) return;
-        if (System.IO.File.Exists(_currentUrl)) { Toast("Rien à enregistrer : lecture d'un fichier local"); return; }
+        if (System.IO.File.Exists(_currentUrl)) { Toast(Loc.T("rec.localNothing")); return; }
 
         // VLC doit relancer le flux pour (dés)activer la copie vers le fichier : on reprend ensuite à la même position.
         _resumeAtMs = _player.IsSeekable ? _player.Time : 0;
@@ -266,13 +267,13 @@ public partial class MainWindow : Window
                 var done = System.IO.Path.GetFileName(_recPath);
                 EndRecordingState();
                 StartMedia(_currentUrl, null);
-                Toast("Enregistrement terminé : " + done);
+                Toast(Loc.T("rec.done", done));
             }
         }
         catch (Exception ex)
         {
             EndRecordingState();
-            Toast("Enregistrement impossible : " + ex.Message);
+            Toast(Loc.T("rec.failed", ex.Message));
         }
     }
 
@@ -286,7 +287,7 @@ public partial class MainWindow : Window
         _vm.ActiveRecordingPath = path;
         UpdateRecBadge();
         _recTimer.Start();
-        Toast("Enregistrement démarré");
+        Toast(Loc.T("rec.started"));
     }
 
     private void EndRecordingState()
@@ -304,13 +305,13 @@ public partial class MainWindow : Window
         var elapsed = DateTime.Now - _recStart;
         long size = 0;
         try { size = new System.IO.FileInfo(_recPath).Length; } catch { }
-        RecText.Text = $"REC  {(int)elapsed.TotalHours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}  ·  {RecordingService.FormatSize(size)}";
+        RecText.Text = Loc.T("rec.badge", $"{(int)elapsed.TotalHours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}", RecordingService.FormatSize(size));
         RecBlink.Opacity = elapsed.Seconds % 2 == 0 ? 1 : 0.25;
 
         if (!_recWarned && size == 0 && elapsed.TotalSeconds > 8)
         {
             _recWarned = true;
-            Toast("Aucune donnée enregistrée pour l'instant — le flux est peut-être indisponible");
+            Toast(Loc.T("rec.noData"));
         }
     }
 
@@ -322,7 +323,7 @@ public partial class MainWindow : Window
         var t = _resumeAtMs;
         _resumeAtMs = 0;
         _player.Time = t;
-        if (_resumeToast) { _resumeToast = false; Toast("Reprise à " + Fmt(t)); }
+        if (_resumeToast) { _resumeToast = false; Toast(Loc.T("resume.at", Fmt(t))); }
     }
 
     // ------------------------------------------------------------------ Historique & langue des pistes
@@ -378,7 +379,7 @@ public partial class MainWindow : Window
                 if (current.Name == null || !Languages.NameMatches(audioLang, current.Name))
                 {
                     var match = tracks.FirstOrDefault(x => Languages.NameMatches(audioLang, x.Name));
-                    if (match.Name != null) { _player.SetAudioTrack(match.Id); Toast("Audio : " + match.Name); }
+                    if (match.Name != null) { _player.SetAudioTrack(match.Id); Toast(Loc.T("track.audio", match.Name)); }
                 }
             }
         }
@@ -406,12 +407,12 @@ public partial class MainWindow : Window
             System.IO.Directory.CreateDirectory(_vm.RecordingsDir);
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_vm.RecordingsDir) { UseShellExecute = true });
         }
-        catch (Exception ex) { MessageBox.Show(this, ex.Message, "Dossier", MessageBoxButton.OK, MessageBoxImage.Warning); }
+        catch (Exception ex) { MessageBox.Show(this, ex.Message, Loc.T("rec.dir.err"), MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
 
     private void ChooseRecDir_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "Dossier des enregistrements", InitialDirectory = _vm.RecordingsDir };
+        var dlg = new Microsoft.Win32.OpenFolderDialog { Title = Loc.T("rec.dir.dialog"), InitialDirectory = _vm.RecordingsDir };
         if (dlg.ShowDialog(this) == true) _vm.SetRecordingsDir(dlg.FolderName);
     }
 
@@ -429,10 +430,10 @@ public partial class MainWindow : Window
     private void RecDelete_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: RecordingFile f }) return;
-        if (MessageBox.Show(this, $"Supprimer définitivement « {f.Name} » ({f.SizeText}) ?", "Supprimer l'enregistrement",
+        if (MessageBox.Show(this, Loc.T("rec.delete.confirm", f.Name, f.SizeText), Loc.T("rec.delete.title"),
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         var err = _vm.DeleteRecording(f);
-        if (err != null) MessageBox.Show(this, err, "Suppression impossible", MessageBoxButton.OK, MessageBoxImage.Warning);
+        if (err != null) MessageBox.Show(this, err, Loc.T("rec.delete.err"), MessageBoxButton.OK, MessageBoxImage.Warning);
     }
 
     // Superposition quasi transparente (clics captés) pendant la lecture ; noire au repos pour masquer
@@ -513,12 +514,12 @@ public partial class MainWindow : Window
     {
         if (_player == null || !_hasMedia) return;
         var tracks = audio ? _player.AudioTrackDescription : _player.SpuDescription;
-        if (tracks == null || tracks.Length == 0) { Toast(audio ? "Aucune piste audio" : "Aucun sous-titre"); return; }
+        if (tracks == null || tracks.Length == 0) { Toast(Loc.T(audio ? "track.noAudio" : "track.noSubs")); return; }
         var current = audio ? _player.AudioTrack : _player.Spu;
         var idx = Array.FindIndex(tracks, t => t.Id == current);
         var next = tracks[(idx + 1) % tracks.Length];
         if (audio) _player.SetAudioTrack(next.Id); else _player.SetSpu(next.Id);
-        Toast((audio ? "Audio : " : "Sous-titres : ") + next.Name);
+        Toast(Loc.T(audio ? "track.audio" : "track.subs", next.Name));
     }
 
     private async void Toast(string text)

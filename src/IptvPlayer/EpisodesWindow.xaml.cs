@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using IptvPlayer.Localization;
 using IptvPlayer.Models;
 
 namespace IptvPlayer;
@@ -36,7 +37,7 @@ public partial class EpisodesWindow : Window
     }
 
     private void UpdatePlayLabel() =>
-        PlayButton.Content = List.SelectedItem is Episode { ResumeMs: > 0 } ? "Reprendre" : "Lire";
+        PlayButton.Content = Loc.T(List.SelectedItem is Episode { ResumeMs: > 0 } ? "ep.resume" : "ep.play");
 
     private void Play_Click(object sender, RoutedEventArgs e) => Accept();
     private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;

@@ -57,7 +57,7 @@ public static partial class M3uParser
             }
             else if (line[0] != '#' && name != null)
             {
-                var g = string.IsNullOrWhiteSpace(group) ? "Sans catégorie" : group!;
+                var g = string.IsNullOrWhiteSpace(group) ? Localization.Loc.T("m3u.uncategorized") : group!;
                 if (!groups.TryGetValue(g, out var c))
                 {
                     c = new Category { Id = g, Name = g, Kind = ContentKind.Live };

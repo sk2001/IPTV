@@ -3,6 +3,7 @@ using System.Web;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using IptvPlayer.Localization;
 using IptvPlayer.Models;
 using IptvPlayer.Services;
 using Microsoft.Win32;
@@ -39,7 +40,7 @@ public partial class AccountsWindow : Window
         _loading = true;
         _editing = null;
         AccountList.SelectedItem = null;
-        FormTitle.Text = "Nouveau compte";
+        FormTitle.Text = Loc.T("acc.formNew");
         NameBox.Text = UrlBox.Text = UserBox.Text = PassBox.Password = "";
         XtreamRadio.IsChecked = true;
         DeleteBtn.Visibility = Visibility.Collapsed;
@@ -69,7 +70,7 @@ public partial class AccountsWindow : Window
     private void ApplyType()
     {
         var x = IsXtream;
-        UrlLabel.Text = x ? "URL du serveur (http://hote:port)" : "URL de la playlist ou fichier local (.m3u / .m3u8)";
+        UrlLabel.Text = Loc.T(x ? "acc.urlXtream" : "acc.urlM3u");
         CredsPanel.Visibility = x ? Visibility.Visible : Visibility.Collapsed;
         BrowseBtn.Visibility = x ? Visibility.Collapsed : Visibility.Visible;
     }
@@ -106,7 +107,7 @@ public partial class AccountsWindow : Window
             Password = PassBox.Password,
         };
 
-        if (a.Url.Length == 0) { error = "L'URL est obligatoire."; return null; }
+        if (a.Url.Length == 0) { error = Loc.T("acc.err.url"); return null; }
 
         if (a.Type == AccountType.Xtream)
         {
@@ -118,9 +119,9 @@ public partial class AccountsWindow : Window
                 if (string.IsNullOrEmpty(a.Password) && q["password"] is { Length: > 0 } p) a.Password = p;
                 a.Url = uri.GetLeftPart(UriPartial.Authority);
             }
-            if (a.Username.Length == 0 || a.Password.Length == 0) { error = "Nom d'utilisateur et mot de passe obligatoires."; return null; }
+            if (a.Username.Length == 0 || a.Password.Length == 0) { error = Loc.T("acc.err.creds"); return null; }
         }
-        if (a.Name.Length == 0) a.Name = Uri.TryCreate(a.Url, UriKind.Absolute, out var h) && !h.IsFile ? h.Host : "Mon compte";
+        if (a.Name.Length == 0) a.Name = Uri.TryCreate(a.Url, UriKind.Absolute, out var h) && !h.IsFile ? h.Host : Loc.T("acc.defaultName");
         return a;
     }
 
@@ -130,21 +131,21 @@ public partial class AccountsWindow : Window
         if (a == null) { Say(err!, error: true); return; }
 
         TestBtn.IsEnabled = false;
-        Say("Test en cours…");
+        Say(Loc.T("acc.testing"));
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
             if (a.Type == AccountType.Xtream)
             {
                 var res = await new XtreamClient(a).TestAsync(cts.Token);
-                if (res == null) Say("Connexion réussie ✔");
+                if (res == null) Say(Loc.T("acc.ok"));
                 else Say(res, error: true);
             }
             else
             {
                 var cat = await M3uParser.LoadAsync(a.Url, cts.Token);
-                if (cat.Items.Count > 0) Say($"Playlist valide : {cat.Items.Count:N0} entrées ✔");
-                else Say("Playlist vide ou invalide.", error: true);
+                if (cat.Items.Count > 0) Say(Loc.T("acc.playlistOk", cat.Items.Count));
+                else Say(Loc.T("acc.playlistBad"), error: true);
             }
         }
         catch (Exception ex) { Say(ex.Message, error: true); }
@@ -175,13 +176,13 @@ public partial class AccountsWindow : Window
         AccountList.SelectedItem = _editing;
         _loading = false;
         LoadForm(_editing);
-        Say("Compte enregistré ✔");
+        Say(Loc.T("acc.saved"));
     }
 
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
         if (_editing == null) return;
-        var r = MessageBox.Show(this, $"Supprimer le compte « {_editing.Name} » ?", "Confirmation",
+        var r = MessageBox.Show(this, Loc.T("acc.confirmDelete", _editing.Name), Loc.T("acc.confirm"),
             MessageBoxButton.YesNo, MessageBoxImage.Question);
         if (r != MessageBoxResult.Yes) return;
 

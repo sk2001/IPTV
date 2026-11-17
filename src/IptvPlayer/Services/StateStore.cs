@@ -10,6 +10,9 @@ public sealed class AppState
     public int Volume { get; set; } = 80;
     public string? RecordingsDir { get; set; }
 
+    /// <summary>Langue de l'interface : « en » (par défaut) ou « fr ».</summary>
+    public string Language { get; set; } = "en";
+
     // Préférences de lecture (codes de Languages.All ; vide = automatique)
     public string AudioLangVod { get; set; } = "en";      // films & séries
     public string AudioLangLive { get; set; } = "";       // chaînes live

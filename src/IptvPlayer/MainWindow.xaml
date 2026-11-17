@@ -1,6 +1,7 @@
 ﻿<Window x:Class="IptvPlayer.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:IptvPlayer.Localization"
         xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
         xmlns:m="clr-namespace:IptvPlayer.Models"
         xmlns:local="clr-namespace:IptvPlayer"
@@ -64,7 +65,7 @@
                                  Visibility="{Binding HasNow, Converter={StaticResource B2V}}"/>
                 </StackPanel>
                 <ToggleButton Grid.Column="2" Style="{StaticResource StarToggle}" IsChecked="{Binding IsFavorite, Mode=TwoWay}"
-                              Click="Star_Click" ToolTip="Favori"/>
+                              Click="Star_Click" ToolTip="{loc:T item.favorite.tip}"/>
             </Grid>
         </DataTemplate>
 
@@ -95,16 +96,16 @@
                 <StackPanel DockPanel.Dock="Top" Margin="0,14,0,0">
                     <Image Source="Assets/logo.png" Width="42" Height="42" Margin="0,0,0,12" HorizontalAlignment="Center"
                            RenderOptions.BitmapScalingMode="HighQuality" ToolTip="IPTV Player"/>
-                    <RadioButton Style="{StaticResource NavButton}" Content="Live" Tag="&#xE7F4;" IsChecked="{Binding IsLive, Mode=TwoWay}" GroupName="nav"/>
-                    <RadioButton Style="{StaticResource NavButton}" Content="Guide" Tag="&#xE787;" IsChecked="{Binding IsGuideNav, Mode=TwoWay}" GroupName="nav"/>
-                    <RadioButton Style="{StaticResource NavButton}" Content="Films" Tag="&#xE714;" IsChecked="{Binding IsMovies, Mode=TwoWay}" GroupName="nav"/>
-                    <RadioButton Style="{StaticResource NavButton}" Content="Séries" Tag="&#xE8F1;" IsChecked="{Binding IsSeries, Mode=TwoWay}" GroupName="nav"/>
-                    <RadioButton Style="{StaticResource NavButton}" Content="Enreg." Tag="&#xE74E;" IsChecked="{Binding IsRecordingsNav, Mode=TwoWay}" GroupName="nav"/>
+                    <RadioButton Style="{StaticResource NavButton}" Content="{loc:T nav.live}" Tag="&#xE7F4;" IsChecked="{Binding IsLive, Mode=TwoWay}" GroupName="nav"/>
+                    <RadioButton Style="{StaticResource NavButton}" Content="{loc:T nav.guide}" Tag="&#xE787;" IsChecked="{Binding IsGuideNav, Mode=TwoWay}" GroupName="nav"/>
+                    <RadioButton Style="{StaticResource NavButton}" Content="{loc:T nav.movies}" Tag="&#xE714;" IsChecked="{Binding IsMovies, Mode=TwoWay}" GroupName="nav"/>
+                    <RadioButton Style="{StaticResource NavButton}" Content="{loc:T nav.series}" Tag="&#xE8F1;" IsChecked="{Binding IsSeries, Mode=TwoWay}" GroupName="nav"/>
+                    <RadioButton Style="{StaticResource NavButton}" Content="{loc:T nav.rec}" Tag="&#xE74E;" IsChecked="{Binding IsRecordingsNav, Mode=TwoWay}" GroupName="nav"/>
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,12" HorizontalAlignment="Center">
-                    <Button Style="{StaticResource IconButton}" Content="&#xE72C;" ToolTip="Actualiser le catalogue"
+                    <Button Style="{StaticResource IconButton}" Content="&#xE72C;" ToolTip="{loc:T nav.refresh.tip}"
                             Command="{Binding RefreshCommand}" Foreground="{StaticResource MutedBrush}"/>
-                    <Button Style="{StaticResource IconButton}" Content="&#xE713;" ToolTip="Paramètres"
+                    <Button Style="{StaticResource IconButton}" Content="&#xE713;" ToolTip="{loc:T nav.settings.tip}"
                             Click="Settings_Click" Foreground="{StaticResource MutedBrush}"/>
                 </StackPanel>
             </DockPanel>
@@ -130,8 +131,8 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="COMPTE" FontSize="10" Foreground="{StaticResource MutedBrush}"/>
-                            <TextBlock Text="{Binding SelectedAccount.Name, FallbackValue='Aucun compte'}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"/>
+                            <TextBlock Text="{loc:T main.account.label}" FontSize="10" Foreground="{StaticResource MutedBrush}"/>
+                            <TextBlock Text="{Binding SelectedAccountName}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"/>
                         </StackPanel>
                         <TextBlock Grid.Column="1" Text="&#xE70D;" FontFamily="{StaticResource IconFont}" FontSize="12"
                                    VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"/>
@@ -154,7 +155,7 @@
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
-                            <Button Content="Gérer les comptes…" Margin="4,4,4,2" Click="Accounts_Click" Background="Transparent"/>
+                            <Button Content="{loc:T main.manageAccounts}" Margin="4,4,4,2" Click="Accounts_Click" Background="Transparent"/>
                         </StackPanel>
                     </Border>
                 </Popup>
@@ -187,7 +188,7 @@
                     <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="34,9,10,9"/>
                     <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" Foreground="{StaticResource MutedBrush}"
                                VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False"/>
-                    <TextBlock Text="Rechercher…" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"
+                    <TextBlock Text="{loc:T main.search}" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"
                                Margin="35,0,0,0" IsHitTestVisible="False">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
@@ -259,20 +260,20 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Guide TV" FontSize="20" FontWeight="SemiBold"/>
+                        <TextBlock Text="{loc:T guide.title}" FontSize="20" FontWeight="SemiBold"/>
                         <TextBlock Text="{Binding GuideDateText}" Foreground="{StaticResource MutedBrush}" Margin="0,2,0,0"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Style="{StaticResource IconButton}" Content="&#xE76B;" ToolTip="2 h plus tôt (Maj + molette, ←)"
+                        <Button Style="{StaticResource IconButton}" Content="&#xE76B;" ToolTip="{loc:T guide.earlier.tip}"
                                 Command="{Binding GuideShiftCommand}" CommandParameter="-120"/>
-                        <Button Content="Maintenant" Margin="2,0" Command="{Binding GoToNowCommand}"/>
-                        <Button Style="{StaticResource IconButton}" Content="&#xE76C;" ToolTip="2 h plus tard (Maj + molette, →)"
+                        <Button Content="{loc:T guide.now}" Margin="2,0" Command="{Binding GoToNowCommand}"/>
+                        <Button Style="{StaticResource IconButton}" Content="&#xE76C;" ToolTip="{loc:T guide.later.tip}"
                                 Command="{Binding GuideShiftCommand}" CommandParameter="120"/>
                         <Grid Width="250" Margin="18,0,0,0">
                             <TextBox x:Name="GuideSearch" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" Padding="34,8,10,8"/>
                             <TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" Foreground="{StaticResource MutedBrush}"
                                        VerticalAlignment="Center" Margin="12,0,0,0" IsHitTestVisible="False"/>
-                            <TextBlock Text="Filtrer les chaînes…" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"
+                            <TextBlock Text="{loc:T guide.filter}" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"
                                        Margin="35,0,0,0" IsHitTestVisible="False">
                                 <TextBlock.Style>
                                     <Style TargetType="TextBlock">
@@ -294,7 +295,7 @@
                         <ColumnDefinition Width="210"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="CHAÎNES" FontSize="10.5" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                    <TextBlock Text="{loc:T guide.channels}" FontSize="10.5" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="4,0,0,0"/>
                     <ctl:GuideRuler Grid.Column="1" Height="30" ViewStart="{Binding GuideStart}"/>
                 </Grid>
 
@@ -351,12 +352,12 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Enregistrements" FontSize="20" FontWeight="SemiBold"/>
+                        <TextBlock Text="{loc:T rec.title}" FontSize="20" FontWeight="SemiBold"/>
                         <TextBlock Text="{Binding RecordingsDir}" Foreground="{StaticResource MutedBrush}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="Ouvrir le dossier" Click="OpenRecDir_Click" Margin="0,0,8,0"/>
-                        <Button Content="Changer le dossier…" Click="ChooseRecDir_Click"/>
+                        <Button Content="{loc:T rec.openFolder}" Click="OpenRecDir_Click" Margin="0,0,8,0"/>
+                        <Button Content="{loc:T rec.changeFolder}" Click="ChooseRecDir_Click"/>
                     </StackPanel>
                 </Grid>
                 <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" CornerRadius="12">
@@ -378,14 +379,14 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center" Margin="6,0">
                                             <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontSize="13.5"/>
-                                            <TextBlock Text="● enregistrement en cours" FontSize="11" Foreground="{StaticResource DangerBrush}"
+                                            <TextBlock Text="{loc:T rec.active}" FontSize="11" Foreground="{StaticResource DangerBrush}"
                                                        Visibility="{Binding IsActive, Converter={StaticResource B2V}}"/>
                                         </StackPanel>
                                         <TextBlock Grid.Column="1" Text="{Binding DateText}" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
                                         <TextBlock Grid.Column="2" Text="{Binding SizeText}" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center"/>
                                         <StackPanel Grid.Column="3" Orientation="Horizontal">
-                                            <Button Style="{StaticResource IconButton}" Content="&#xE768;" ToolTip="Lire" Click="RecPlay_Click"/>
-                                            <Button Style="{StaticResource IconButton}" Content="&#xE74D;" ToolTip="Supprimer" Click="RecDelete_Click"
+                                            <Button Style="{StaticResource IconButton}" Content="&#xE768;" ToolTip="{loc:T rec.play.tip}" Click="RecPlay_Click"/>
+                                            <Button Style="{StaticResource IconButton}" Content="&#xE74D;" ToolTip="{loc:T rec.delete.tip}" Click="RecDelete_Click"
                                                     Foreground="{StaticResource DangerBrush}"/>
                                         </StackPanel>
                                     </Grid>
@@ -414,7 +415,7 @@
                 <StackPanel x:Name="Idle" VerticalAlignment="Center" HorizontalAlignment="Center">
                     <TextBlock Text="&#xE7F4;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" FontSize="72"
                                Foreground="#2A323D" HorizontalAlignment="Center"/>
-                    <TextBlock Text="Double-cliquez sur un contenu pour le lire" Foreground="#8B98A9" FontSize="14"
+                    <TextBlock Text="{loc:T player.idle}" Foreground="#8B98A9" FontSize="14"
                                Margin="0,16,0,0" HorizontalAlignment="Center"/>
                 </StackPanel>
 
@@ -463,19 +464,19 @@
                         </Grid>
                         <Grid>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                                <Button x:Name="PlayBtn" Style="{StaticResource IconButton}" Content="&#xE769;" Foreground="White" Click="PlayPause_Click" ToolTip="Lecture / Pause (Espace)"/>
-                                <Button Style="{StaticResource IconButton}" Content="&#xE71A;" Foreground="White" Click="Stop_Click" ToolTip="Arrêter"/>
+                                <Button x:Name="PlayBtn" Style="{StaticResource IconButton}" Content="&#xE769;" Foreground="White" Click="PlayPause_Click" ToolTip="{loc:T player.playpause.tip}"/>
+                                <Button Style="{StaticResource IconButton}" Content="&#xE71A;" Foreground="White" Click="Stop_Click" ToolTip="{loc:T player.stop.tip}"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button x:Name="RecBtn" Style="{StaticResource IconButton}" Click="Record_Click" ToolTip="Enregistrer (R)">
+                                <Button x:Name="RecBtn" Style="{StaticResource IconButton}" Click="Record_Click" ToolTip="{loc:T player.record.tip}">
                                     <Ellipse x:Name="RecDot" Width="14" Height="14" Stroke="#F85149" StrokeThickness="2" Fill="Transparent"/>
                                 </Button>
-                                <Button Style="{StaticResource IconButton}" Content="&#xE8D6;" Foreground="White" Click="Audio_Click" ToolTip="Piste audio suivante"/>
-                                <Button Style="{StaticResource IconButton}" Content="&#xE7F0;" Foreground="White" Click="Subs_Click" ToolTip="Sous-titres suivants"/>
-                                <Button x:Name="MuteBtn" Style="{StaticResource IconButton}" Content="&#xE767;" Foreground="White" Click="Mute_Click" ToolTip="Muet (M)"/>
+                                <Button Style="{StaticResource IconButton}" Content="&#xE8D6;" Foreground="White" Click="Audio_Click" ToolTip="{loc:T player.audio.tip}"/>
+                                <Button Style="{StaticResource IconButton}" Content="&#xE7F0;" Foreground="White" Click="Subs_Click" ToolTip="{loc:T player.subs.tip}"/>
+                                <Button x:Name="MuteBtn" Style="{StaticResource IconButton}" Content="&#xE767;" Foreground="White" Click="Mute_Click" ToolTip="{loc:T player.mute.tip}"/>
                                 <Slider x:Name="VolumeSlider" Width="100" Minimum="0" Maximum="100" Value="80" VerticalAlignment="Center"
                                         ValueChanged="Volume_Changed" Margin="2,0,10,0"/>
-                                <Button x:Name="FsBtn" Style="{StaticResource IconButton}" Content="&#xE740;" Foreground="White" Click="Fullscreen_Click" ToolTip="Plein écran (F)"/>
+                                <Button x:Name="FsBtn" Style="{StaticResource IconButton}" Content="&#xE740;" Foreground="White" Click="Fullscreen_Click" ToolTip="{loc:T player.fullscreen.tip}"/>
                             </StackPanel>
                         </Grid>
                     </StackPanel>

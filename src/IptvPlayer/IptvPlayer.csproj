@@ -38,6 +38,16 @@
     <Resource Include="Assets\logo.png" />
   </ItemGroup>
 
+  <!-- Avis de licence consultables dans l'application (Paramètres → À propos). -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\LICENSE" LogicalName="LICENSE" />
+    <EmbeddedResource Include="..\..\THIRD_PARTY_NOTICES.md" LogicalName="THIRD_PARTY_NOTICES.md" />
+    <!-- WithCulture=false : sinon MSBuild prend « .en. » pour une culture et sort la ressource de l'exe principal. -->
+    <EmbeddedResource Include="..\..\THIRD_PARTY_NOTICES.en.md" LogicalName="THIRD_PARTY_NOTICES.en.md" WithCulture="false" />
+    <EmbeddedResource Include="..\..\LICENSES\LGPL-2.1.txt" LogicalName="LGPL-2.1.txt" />
+    <EmbeddedResource Include="..\..\LICENSES\DOTNET-THIRD-PARTY-NOTICES.txt" LogicalName="DOTNET-THIRD-PARTY-NOTICES.txt" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="LibVLCSharp.WPF" Version="3.10.2" />

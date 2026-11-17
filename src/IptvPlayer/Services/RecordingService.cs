@@ -1,4 +1,5 @@
 using System.IO;
+using IptvPlayer.Localization;
 using IptvPlayer.Models;
 
 namespace IptvPlayer.Services;
@@ -51,9 +52,9 @@ public static class RecordingService
 
     public static string FormatSize(long bytes) => bytes switch
     {
-        >= 1L << 30 => $"{bytes / (double)(1L << 30):0.0} Go",
-        >= 1L << 20 => $"{bytes / (double)(1L << 20):0} Mo",
-        >= 1L << 10 => $"{bytes / (double)(1L << 10):0} Ko",
-        _ => $"{bytes} o",
+        >= 1L << 30 => $"{bytes / (double)(1L << 30):0.0} {Loc.T("unit.gb")}",
+        >= 1L << 20 => $"{bytes / (double)(1L << 20):0} {Loc.T("unit.mb")}",
+        >= 1L << 10 => $"{bytes / (double)(1L << 10):0} {Loc.T("unit.kb")}",
+        _ => $"{bytes} {Loc.T("unit.b")}",
     };
 }

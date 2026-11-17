@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using IptvPlayer.Localization;
 using IptvPlayer.Models;
 using IptvPlayer.Services;
 
@@ -53,7 +54,7 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string? _activeRecordingPath;
     public string RecordingsDir => string.IsNullOrWhiteSpace(_state.RecordingsDir) ? RecordingService.DefaultDir : _state.RecordingsDir!;
     public string RecordingsEmptyText => Recordings.Count == 0
-        ? "Aucun enregistrement.\nPendant une lecture, clique sur le bouton ● du lecteur (ou touche R)."
+        ? Loc.T("rec.empty")
         : "";
     public string GuideDateText => GuideStart.ToString("dddd d MMMM", System.Globalization.CultureInfo.CurrentCulture);
 
@@ -77,6 +78,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     public bool HasAccounts => Accounts.Count > 0;
 
+    /// <summary>Nom du compte actif, ou « Aucun compte » (traduit).</summary>
+    public string SelectedAccountName => SelectedAccount?.Name ?? Loc.T("main.account.none");
+
     public bool IsLive { get => Mode == NavMode.Live; set { if (value) Mode = NavMode.Live; } }
     public bool IsGuideNav { get => Mode == NavMode.Guide; set { if (value) Mode = NavMode.Guide; } }
     public bool IsMovies { get => Mode == NavMode.Movies; set { if (value) Mode = NavMode.Movies; } }
@@ -92,8 +96,33 @@ public sealed partial class MainViewModel : ObservableObject
     public MainViewModel()
     {
         Accounts = new ObservableCollection<Account>(_store.Load());
+        Loc.LanguageChanged += OnLanguageChanged;
         _clock.Tick += (_, _) => OnClockTick();
         _clock.Start();
+    }
+
+    /// <summary>Rafraîchit les textes calculés par le ViewModel quand la langue de l'interface change.</summary>
+    private Func<string>? _statusFactory;
+    private string? _statusFactoryValue;
+
+    /// <summary>Affiche un statut traduit ; il est recalculé si la langue change (tant qu'il n'a pas été remplacé).</summary>
+    private void SetStatus(Func<string> factory)
+    {
+        _statusFactory = factory;
+        Status = _statusFactoryValue = factory();
+    }
+
+    private void OnLanguageChanged()
+    {
+        if (_statusFactory != null && Status == _statusFactoryValue) Status = _statusFactoryValue = _statusFactory();
+        OnPropertyChanged(nameof(SelectedAccountName));
+        OnPropertyChanged(nameof(GuideDateText));
+        OnPropertyChanged(nameof(RecordingsEmptyText));
+        if (_catalog != null) RebuildCategories(SelectedCategory?.Id);
+        UpdateEmpty();
+        UpdateGuideEmpty();
+        foreach (var i in Items) i.RefreshEpg();
+        _ = RefreshRecordingsAsync();
     }
 
     private void OnClockTick()
@@ -136,6 +165,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     partial void OnSelectedAccountChanged(Account? value)
     {
+        OnPropertyChanged(nameof(SelectedAccountName));
         _state.LastAccountId = value?.Id;
         HistoryService.CurrentAccount = value?.Id ?? Guid.Empty;
         StateStore.Save(_state);
@@ -159,7 +189,7 @@ public sealed partial class MainViewModel : ObservableObject
         if (acc == null) { Status = ""; IsLoading = false; UpdateEmpty(); return; }
 
         IsLoading = true;
-        Status = "Chargement…";
+        SetStatus(() => Loc.T("vm.loading"));
         UpdateEmpty();
         try
         {
@@ -169,17 +199,17 @@ public sealed partial class MainViewModel : ObservableObject
             if (cache != null)
             {
                 await SetCatalogAsync(acc, cache);
-                Status = $"Cache du {cache.FetchedAt.ToLocalTime():g}";
+                SetStatus(() => Loc.T("vm.cacheFrom", cache.FetchedAt.ToLocalTime()));
             }
 
             var stale = force || cache == null || DateTime.UtcNow - cache.FetchedAt > TimeSpan.FromHours(12);
             if (stale)
             {
-                Status = "Mise à jour…";
+                SetStatus(() => Loc.T("vm.updating"));
                 var fresh = await CatalogService.FetchAsync(acc, new Progress<string>(s => Status = s), cts.Token);
                 if (cts.IsCancellationRequested) return;
                 await SetCatalogAsync(acc, fresh);
-                Status = $"{fresh.Items.Count:N0} éléments · mis à jour";
+                SetStatus(() => Loc.T("vm.updated", fresh.Items.Count));
             }
 
             if (_catalog != null && !cts.IsCancellationRequested)
@@ -188,7 +218,7 @@ public sealed partial class MainViewModel : ObservableObject
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            if (!cts.IsCancellationRequested) Status = "Erreur : " + ex.Message;
+            if (!cts.IsCancellationRequested) SetStatus(() => Loc.T("vm.error", ex.Message));
         }
         finally
         {
@@ -227,13 +257,13 @@ public sealed partial class MainViewModel : ObservableObject
             if (i.IsFavorite) favs++;
         }
 
-        var all = new Category { Id = AllId, Name = "Tout", Kind = kind, Count = total };
+        var all = new Category { Id = AllId, Name = Loc.T("cat.all"), Kind = kind, Count = total };
         var list = new List<Category>
         {
-            new() { Id = FavId, Name = "★  Favoris", Kind = kind, Count = favs },
+            new() { Id = FavId, Name = Loc.T("cat.favorites"), Kind = kind, Count = favs },
         };
         if (kind != ContentKind.Live)
-            list.Add(new Category { Id = HistId, Name = "↺  Historique", Kind = kind, Count = History.Recent(SelectedAccount?.Id ?? Guid.Empty, kind).Count });
+            list.Add(new Category { Id = HistId, Name = Loc.T("cat.history"), Kind = kind, Count = History.Recent(SelectedAccount?.Id ?? Guid.Empty, kind).Count });
         list.Add(all);
         list.AddRange(_catalog.Categories.Where(c => c.Kind == kind));
         Categories = list;
@@ -311,7 +341,7 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Supprime un enregistrement (refusé s'il est en cours). Retourne un message d'erreur ou null.</summary>
     public string? DeleteRecording(RecordingFile file)
     {
-        if (file.IsActive) return "Arrête d'abord l'enregistrement en cours.";
+        if (file.IsActive) return Loc.T("rec.stopFirst");
         try { File.Delete(file.Path); }
         catch (Exception ex) { return ex.Message; }
         _ = RefreshRecordingsAsync();
@@ -324,10 +354,10 @@ public sealed partial class MainViewModel : ObservableObject
     {
         try
         {
-            if (EpgService.SourceUrl(acc, catalog) == null) { GuideEmptyText = "Cette playlist ne fournit pas de guide TV (url-tvg absent)."; return; }
+            if (EpgService.SourceUrl(acc, catalog) == null) { GuideEmptyText = Loc.T("guide.noSource"); return; }
 
             IsEpgLoading = true;
-            GuideEmptyText = "Chargement du guide TV…";
+            GuideEmptyText = Loc.T("guide.loading");
             EpgData? cache = force ? null : await EpgService.LoadCacheAsync(acc);
             if (ct.IsCancellationRequested) return;
             if (cache != null) SetEpg(cache);
@@ -336,19 +366,19 @@ public sealed partial class MainViewModel : ObservableObject
             if (stale)
             {
                 var old = Status;
-                Status = "Guide TV : téléchargement…";
+                SetStatus(() => Loc.T("guide.downloading"));
                 try
                 {
                     var fresh = await EpgService.FetchAsync(acc, catalog, ct);
                     if (ct.IsCancellationRequested) return;
                     if (fresh != null) SetEpg(fresh);
-                    Status = fresh == null ? old : $"Guide TV : {fresh.ById.Count(kv => kv.Value.Count > 0):N0} chaînes";
+                    Status = fresh == null ? old : Loc.T("guide.channelsCount", fresh.ById.Count(kv => kv.Value.Count > 0));
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
                 {
-                    Status = "Guide TV indisponible : " + ex.Message;
-                    if (_epg == null) GuideEmptyText = "Guide TV indisponible pour ce compte.";
+                    SetStatus(() => Loc.T("guide.unavailableStatus", ex.Message));
+                    if (_epg == null) GuideEmptyText = Loc.T("guide.unavailable");
                 }
             }
         }
@@ -392,14 +422,14 @@ public sealed partial class MainViewModel : ObservableObject
     private void UpdateGuideEmpty()
     {
         if (GuideRows.Count > 0) { GuideEmptyText = ""; return; }
-        if (IsEpgLoading) { GuideEmptyText = "Chargement du guide TV…"; return; }
+        if (IsEpgLoading) { GuideEmptyText = Loc.T("guide.loading"); return; }
         if (_epg == null)
         {
-            if (string.IsNullOrEmpty(GuideEmptyText) || GuideEmptyText.StartsWith("Chargement"))
-                GuideEmptyText = "Aucun guide TV disponible pour ce compte.";
+            if (string.IsNullOrEmpty(GuideEmptyText) || GuideEmptyText == Loc.T("guide.loading"))
+                GuideEmptyText = Loc.T("guide.none");
             return;
         }
-        GuideEmptyText = "Aucune chaîne de cette sélection n'a de programme dans le guide.";
+        GuideEmptyText = Loc.T("guide.noPrograms");
     }
 
     [RelayCommand]
@@ -434,13 +464,13 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void UpdateEmpty()
     {
-        if (!HasAccounts) EmptyText = "Ajoutez un compte pour commencer.";
+        if (!HasAccounts) EmptyText = Loc.T("empty.noAccount");
         else if (IsLoading && Items.Count == 0) EmptyText = "";
         else if (_catalog == null) EmptyText = "";
         else if (Items.Count == 0)
-            EmptyText = SelectedCategory?.Id == FavId ? "Aucun favori pour l'instant."
-                      : SelectedCategory?.Id == HistId ? "Rien dans l'historique pour l'instant.\nLes films et épisodes regardés apparaissent ici (Suppr pour en retirer un)."
-                      : string.IsNullOrWhiteSpace(SearchText) ? "Aucun contenu dans cette section." : "Aucun résultat.";
+            EmptyText = SelectedCategory?.Id == FavId ? Loc.T("empty.noFav")
+                      : SelectedCategory?.Id == HistId ? Loc.T("empty.noHistory")
+                      : string.IsNullOrWhiteSpace(SearchText) ? Loc.T("empty.noContent") : Loc.T("empty.noResult");
         else EmptyText = "";
     }
 
@@ -459,11 +489,11 @@ public sealed partial class MainViewModel : ObservableObject
 
         if (item.Kind == ContentKind.Series)
         {
-            Status = "Chargement des épisodes…";
+            SetStatus(() => Loc.T("vm.loadingEpisodes"));
             try
             {
                 var eps = await new XtreamClient(acc).GetEpisodesAsync(item.Id);
-                if (eps.Count == 0) { Status = "Aucun épisode trouvé."; return; }
+                if (eps.Count == 0) { SetStatus(() => Loc.T("vm.noEpisodes")); return; }
                 var suggested = PrepareEpisodes(acc, item, eps);
                 var ep = EpisodePicker?.Invoke(item, eps, suggested, (e, watched) => SetEpisodeWatched(acc, item, e, watched));
                 if (ep == null) { Status = ""; return; }
@@ -473,7 +503,7 @@ public sealed partial class MainViewModel : ObservableObject
                 var ctx = MakeContext(acc, item, ep, _state.ResumePlayback ? ep.ResumeMs : 0);
                 PlayRequested?.Invoke(ep.Url, $"{item.Name} — {ep.Display}", ctx);
             }
-            catch (Exception ex) { Status = "Erreur : " + ex.Message; }
+            catch (Exception ex) { SetStatus(() => Loc.T("vm.error", ex.Message)); }
             return;
         }
 
@@ -612,6 +642,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _store.Save(Accounts);
         OnPropertyChanged(nameof(HasAccounts));
+        OnPropertyChanged(nameof(SelectedAccountName));
 
         if (SelectedAccount == null || !Accounts.Contains(SelectedAccount))
             SelectedAccount = Accounts.FirstOrDefault();

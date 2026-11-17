@@ -103,7 +103,7 @@ public sealed class MediaItem : CommunityToolkit.Mvvm.ComponentModel.ObservableO
             {
                 var state = w.Completed ? "✓" : w.InProgress ? $"▶ {w.Progress:P0}" : null;
                 if (Kind == ContentKind.Series) parts.Add($"S{w.Season:00}E{w.Number:00}" + (state != null ? " " + state : ""));
-                else if (state != null) parts.Add(w.Completed ? "✓ Vu" : state);
+                else if (state != null) parts.Add(w.Completed ? Localization.Loc.T("watch.seen") : state);
             }
             return parts.Count == 0 ? null : string.Join("  ·  ", parts);
         }
@@ -162,7 +162,7 @@ public sealed class Episode : CommunityToolkit.Mvvm.ComponentModel.ObservableObj
     /// <summary>Position à reprendre (ms) ; renseignée par le ViewModel.</summary>
     public long ResumeMs { get; set; }
 
-    public string StatusText => IsWatched ? "✓ Vu" : Progress > 0 ? $"▶ {Progress:P0}" : "";
+    public string StatusText => IsWatched ? Localization.Loc.T("watch.seen") : Progress > 0 ? $"▶ {Progress:P0}" : "";
 }
 
 public sealed class Catalog
