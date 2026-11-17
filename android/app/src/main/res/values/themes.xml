@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fond sombre dès l'ouverture, avant l'affichage de Compose (AppCompat requis pour le changement de langue). -->
+    <style name="Theme.IptvPlayer" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="colorPrimary">#4C8DFF</item>
+        <item name="colorAccent">#4C8DFF</item>
+    </style>
+</resources>

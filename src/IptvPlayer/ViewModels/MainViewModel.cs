@@ -638,6 +638,17 @@ public sealed partial class MainViewModel : ObservableObject
         if (SelectedCategory?.Id == FavId) ApplyFilter(immediate: true);
     }
 
+    /// <summary>Après une synchronisation : relit les favoris sur le catalogue affiché.</summary>
+    public void AfterSync()
+    {
+        if (_catalog != null && SelectedAccount != null)
+        {
+            var prefix = SelectedAccount.Id.ToString("N");
+            foreach (var i in _catalog.Items) i.IsFavorite = _state.Favorites.Contains($"{prefix}|{(int)i.Kind}|{i.Id}");
+            RebuildCategories(SelectedCategory?.Id);
+        }
+    }
+
     public void AccountsEdited(IReadOnlySet<Guid> modified)
     {
         _store.Save(Accounts);

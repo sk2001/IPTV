@@ -1,0 +1,4 @@
+
+# Scripts executes sous Linux / WSL : toujours en LF
+android/gradlew text eol=lf
+*.sh text eol=lf

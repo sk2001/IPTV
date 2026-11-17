@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">IPTV Player</string>
+
+    <!-- Navigation -->
+    <string name="nav_live">Live</string>
+    <string name="nav_movies">Movies</string>
+    <string name="nav_series">Series</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Liste -->
+    <string name="search_hint">Search…</string>
+    <string name="cat_all">All</string>
+    <string name="cat_favorites">Favorites</string>
+    <string name="cat_history">History</string>
+    <string name="account_none">No account</string>
+    <string name="manage_accounts">Manage accounts…</string>
+    <string name="refresh">Refresh catalog</string>
+    <string name="status_loading">Loading…</string>
+    <string name="status_updating">Updating…</string>
+    <string name="status_cached">Cache from %1$s</string>
+    <string name="status_updated">%1$d items · updated</string>
+    <string name="status_error">Error: %1$s</string>
+    <string name="empty_no_fav">No favorites yet.</string>
+    <string name="empty_no_history">Nothing in history yet.\nMovies and episodes you watch appear here.</string>
+    <string name="empty_no_content">No content in this section.</string>
+    <string name="empty_no_result">No results.</string>
+    <string name="watched">Watched</string>
+    <string name="favorite">Favorite</string>
+    <string name="remove_from_history">Remove from history</string>
+
+    <!-- Lecteur -->
+    <string name="back">Back</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="audio_track">Audio track</string>
+    <string name="subtitles">Subtitles</string>
+    <string name="player_error">Playback error — stream unavailable</string>
+    <string name="player_buffering">Buffering… %1$d%%</string>
+    <string name="toast_resume">Resuming at %1$s</string>
+    <string name="toast_audio">Audio: %1$s</string>
+    <string name="toast_no_tracks">No other track</string>
+
+    <!-- Épisodes -->
+    <string name="episodes_title">Episodes</string>
+    <string name="season_n">Season %1$d</string>
+    <string name="episodes_loading">Loading episodes…</string>
+    <string name="episodes_none">No episodes found.</string>
+    <string name="mark_watched">Mark as watched</string>
+    <string name="mark_unwatched">Mark as not watched</string>
+    <string name="resume">Resume</string>
+
+    <!-- Compte -->
+    <string name="account_add_title">Add an account</string>
+    <string name="account_edit_title">Edit account</string>
+    <string name="account_intro">Connect an IPTV provider (Xtream Codes) or a M3U playlist.</string>
+    <string name="field_name">Account name</string>
+    <string name="type_xtream">Xtream Codes</string>
+    <string name="type_m3u">M3U playlist</string>
+    <string name="field_server">Server URL (http://host:port)</string>
+    <string name="field_playlist">Playlist URL</string>
+    <string name="field_username">Username</string>
+    <string name="field_password">Password</string>
+    <string name="btn_test">Test</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_delete">Delete</string>
+    <string name="test_running">Testing…</string>
+    <string name="test_ok">Connection successful ✔</string>
+    <string name="err_url">The URL is required.</string>
+    <string name="err_creds">Username and password are required.</string>
+    <string name="confirm_delete">Delete account “%1$s”?</string>
+    <string name="default_account_name">My account</string>
+
+    <!-- Paramètres -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_note">Changes apply to the next playback.</string>
+    <string name="settings_language">INTERFACE LANGUAGE</string>
+    <string name="settings_audio_vod">AUDIO LANGUAGE — MOVIES AND SERIES</string>
+    <string name="settings_subs">SUBTITLES — MOVIES AND SERIES</string>
+    <string name="settings_audio_live">AUDIO LANGUAGE — LIVE CHANNELS</string>
+    <string name="settings_resume">RESUME PLAYBACK</string>
+    <string name="settings_history">HISTORY</string>
+    <string name="settings_accounts">ACCOUNTS</string>
+    <string name="settings_about">ABOUT</string>
+    <string name="settings_about_text">IPTV Player %1$s — playback powered by libVLC %2$s (VideoLAN, LGPL-2.1+). The app provides no content: you are responsible for the rights to the streams you play.</string>
+    <string name="settings_clear_history">Clear history</string>
+    <string name="settings_history_confirm">Clear all watch history? Resume positions will be lost.</string>
+    <string name="option_auto">Auto</string>
+    <string name="option_none">None</string>
+    <string name="option_yes">Yes</string>
+    <string name="option_no">No</string>
+    <string name="confirm">Confirm</string>
+    <string name="settings_remote">REMOTE CONTROL</string>
+    <string name="settings_remote_note">Lets other devices on your home network control playback on this one. Pair with the PIN shown here.</string>
+    <string name="remote_on">Enabled</string>
+    <string name="remote_off">Disabled</string>
+    <string name="remote_status">Visible as “%1$s” (port %2$d)</string>
+    <string name="remote_pin">Pairing PIN: %1$s</string>
+    <string name="remote_revoke">Revoke</string>
+    <string name="ctrl_section">CONTROL OTHER DEVICES</string>
+    <string name="ctrl_open">Open remote control</string>
+    <string name="ctrl_title">Remote control</string>
+    <string name="ctrl_paired">PAIRED DEVICES</string>
+    <string name="ctrl_none_paired">No paired device yet.</string>
+    <string name="ctrl_nearby">NEARBY DEVICES</string>
+    <string name="ctrl_searching">Searching… (the other device must have remote control enabled)</string>
+    <string name="ctrl_pair">Pair</string>
+    <string name="ctrl_enter_pin">Enter the PIN shown on “%1$s”</string>
+    <string name="ctrl_wrong_pin">Wrong PIN</string>
+    <string name="ctrl_connecting">Connecting…</string>
+    <string name="ctrl_idle">Nothing is playing</string>
+    <string name="ctrl_mute">Mute</string>
+    <string name="ctrl_volume">Volume: %1$d %%</string>
+    <string name="send_to">Send to…</string>
+    <string name="ctrl_manual">OR ENTER AN ADDRESS</string>
+    <string name="ctrl_sync">Sync favorites, history and settings</string>
+    <string name="ctrl_sync_done">Synchronized: %1$s received, %2$s sent.</string>
+    <string name="ctrl_sync_skipped">(Accounts skipped: enable account sync on both devices.)</string>
+    <string name="settings_sync_accounts">Synchronize accounts too (passwords are sent over the paired, encrypted link). Must be enabled on both devices.</string>
+    <string name="settings_licenses">Component licenses…</string>
+    <string name="remote_qr">Scan this code from another device (%1$s:%2$d)</string>
+    <string name="remote_qr_desc">Pairing QR code</string>
+    <string name="ctrl_scan">Scan a QR code</string>
+    <string name="ctrl_scan_prompt">Scan the QR code shown on the other device</string>
+    <string name="ctrl_bad_qr">This QR code is not a valid pairing code for the local network.</string>
+    <string name="offer_show">Show a QR code to set up another device</string>
+    <string name="offer_title">Set up another device</string>
+    <string name="offer_text">On the other device, scan this code with the app (Sign in with another device). Your accounts, settings, favorites and progress are transferred.</string>
+    <string name="offer_pin">Code: %1$s</string>
+    <string name="offer_valid">Valid for 5 minutes, single use.</string>
+    <string name="offer_expired">The code has expired or was used.</string>
+    <string name="offer_no_network">No local network found. Connect to Wi-Fi or Ethernet.</string>
+    <string name="offer_new">New code</string>
+    <string name="login_other_device">Sign in with another device (QR code)</string>
+    <string name="ctrl_code_optional">Code shown on the other device (optional)</string>
+    <string name="ctrl_transfer_title">Transfer your setup with “%1$s”?</string>
+    <string name="ctrl_transfer_text">Accounts (with their passwords), settings, favorites and watch progress are exchanged with that device, in both directions.</string>
+    <string name="ctrl_transfer_go">Transfer</string>
+    <string name="ctrl_transfer_done">Done: %1$s received, %2$s sent.</string>
+    <string name="tv_setup_title">Set up this TV</string>
+    <string name="tv_setup_steps">1. Open IPTV Player on your phone.\n2. Go to Settings, Remote control, and choose Scan a QR code.\n3. Scan the code on the right and confirm the transfer.\n\nYour accounts, settings, favorites and progress will appear here.</string>
+    <string name="tv_setup_manual">Add an account manually</string>
+</resources>

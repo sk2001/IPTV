@@ -129,6 +129,22 @@ public sealed class HistoryService
         }
     }
 
+    /// <summary>Copie de toutes les entrées (pour la synchronisation).</summary>
+    public List<WatchEntry> Snapshot() { lock (_lock) return _entries.Values.ToList(); }
+
+    /// <summary>Applique des changements reçus d'un autre appareil.</summary>
+    public void ApplySync(IEnumerable<WatchEntry> upserts, IEnumerable<string> deleteKeys)
+    {
+        lock (_lock)
+        {
+            foreach (var k in deleteKeys) _entries.Remove(k);
+            foreach (var e in upserts) _entries[e.Key] = e;
+            _dirty = true;
+            Trim();
+        }
+        Save();
+    }
+
     public void Clear()
     {
         lock (_lock) { _entries.Clear(); _dirty = true; }

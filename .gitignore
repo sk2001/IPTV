@@ -3,3 +3,19 @@ obj/
 dist/
 *.user
 .vs/
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+*.iml
+*.apk
+*.aab
+android/keystore.properties
+*.jks
+*.keystore
+
+android/libvlc-lgpl/jniLibs/
+android/libvlc-lgpl/build/

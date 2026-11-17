@@ -48,6 +48,12 @@
                     <Button Content="{loc:T main.manageAccounts}" Click="Accounts_Click"/>
                 </StackPanel>
 
+                <TextBlock Text="{loc:T rem.section}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AccentHoverBrush}" Margin="0,0,0,10"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+                    <Button Content="{loc:T rem.open}" Click="Remote_Click"/>
+                    <Button Content="{loc:T share.open}" Click="Share_Click" Margin="8,0,0,0"/>
+                </StackPanel>
+
                 <TextBlock Text="{loc:T set.about}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AccentHoverBrush}" Margin="0,0,0,4"/>
                 <TextBlock x:Name="AboutText" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,10"/>
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,8">

@@ -471,6 +471,7 @@
                                 <Button x:Name="RecBtn" Style="{StaticResource IconButton}" Click="Record_Click" ToolTip="{loc:T player.record.tip}">
                                     <Ellipse x:Name="RecDot" Width="14" Height="14" Stroke="#F85149" StrokeThickness="2" Fill="Transparent"/>
                                 </Button>
+                                <Button Style="{StaticResource IconButton}" Content="&#xEC15;" Foreground="White" Click="SendTo_Click" ToolTip="{loc:T rem.sendTo}"/>
                                 <Button Style="{StaticResource IconButton}" Content="&#xE8D6;" Foreground="White" Click="Audio_Click" ToolTip="{loc:T player.audio.tip}"/>
                                 <Button Style="{StaticResource IconButton}" Content="&#xE7F0;" Foreground="White" Click="Subs_Click" ToolTip="{loc:T player.subs.tip}"/>
                                 <Button x:Name="MuteBtn" Style="{StaticResource IconButton}" Content="&#xE767;" Foreground="White" Click="Mute_Click" ToolTip="{loc:T player.mute.tip}"/>

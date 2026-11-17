@@ -52,7 +52,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        DataContext = _vm;
+        DataContext = _vm; RemoteHub.Vm = _vm;
 
         Overlay.Background = Brushes.Black;   // état initial : rien en lecture
         _vm.PlayRequested += OnPlayRequested;
@@ -688,6 +688,32 @@ public partial class MainWindow : Window
         var w = new SettingsWindow(_vm) { Owner = this };
         w.ShowDialog();
         if (w.OpenAccountsRequested) OpenAccounts();
+    }
+
+    /// <summary>« Envoyer vers » : menu des appareils appairés ; la lecture continue sur l'appareil choisi.</summary>
+    private void SendTo_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu { PlacementTarget = (UIElement)sender, Placement = System.Windows.Controls.Primitives.PlacementMode.Top };
+        if (_currentUrl != null && !System.IO.File.Exists(_currentUrl))
+        {
+            foreach (var t in RemoteHub.Store.Targets.ToList())
+            {
+                var item = new MenuItem { Header = t.Name };
+                item.Click += async (_, _) =>
+                {
+                    var kind = _playKind switch { ContentKind.Movie => "movie", ContentKind.Series => "series", _ => "live" };
+                    var pos = _player is { IsSeekable: true } ? _player.Time : 0;
+                    var err = await RemoteWindow.SendPlayAsync(t, _currentUrl!, _currentTitle ?? _currentUrl!, kind, pos);
+                    if (err == null) Stop_Click(this, new RoutedEventArgs()); else Toast(err);
+                };
+                menu.Items.Add(item);
+            }
+        }
+        if (menu.Items.Count > 0) menu.Items.Add(new Separator());
+        var open = new MenuItem { Header = Loc.T("rem.open") };
+        open.Click += (_, _) => new RemoteWindow { Owner = this }.ShowDialog();
+        menu.Items.Add(open);
+        menu.IsOpen = true;
     }
 
     private void OpenAccounts()

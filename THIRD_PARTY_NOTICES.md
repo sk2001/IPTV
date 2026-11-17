@@ -14,6 +14,7 @@ IPTV Player s'appuie sur les composants ci-dessous. Ce fichier (avec `LICENSES/`
 | **libVLC** (libvlc, libvlccore + plugins) — VideoLAN / VLC Authors | 3.0.24 | **LGPL-2.1-or-later** (plugins LGPL uniquement, voir ci-dessous) | Lecture, décodage, sortie de flux (enregistrement) |
 | **LibVLCSharp** et **LibVLCSharp.WPF** — VideoLAN | 3.10.2 | **LGPL-2.1-or-later** | Interface .NET de libVLC, contrôle vidéo WPF |
 | **CommunityToolkit.Mvvm** — .NET Foundation and Contributors | 8.4.2 | MIT | MVVM (propriétés observables, commandes) |
+| **QRCoder** — Raffael Herrmann and contributors | 1.6.0 | MIT | QR code generation (share my setup) |
 | **System.Security.Cryptography.ProtectedData** — Microsoft | 9.0.0 | MIT | Chiffrement DPAPI des mots de passe |
 | **Runtime .NET 9** et **WPF** (Microsoft.NETCore.App, Microsoft.WindowsDesktop.App) — Microsoft | 9.0.x | MIT | Runtime autonome inclus dans l'exe |
 

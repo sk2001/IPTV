@@ -101,5 +101,9 @@ public partial class SettingsWindow : Window
         Close();
     }
 
+    private void Share_Click(object sender, RoutedEventArgs e) => new ShareWindow(_vm) { Owner = this }.ShowDialog();
+
+    private void Remote_Click(object sender, RoutedEventArgs e) => new RemoteWindow { Owner = this }.ShowDialog();
+
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
 }

@@ -41,7 +41,11 @@ Au premier lancement, VLC est extrait (quelques secondes) dans `%LocalAppData%\I
 Source : `assets/logo.svg`. Les fichiers `.ico` / `.png` de l'application se régénèrent avec
 `powershell.exe -STA -File tools\make-icon.ps1` (à relancer si le dessin change dans le script).
 
+## Contrôle d'appareils Android
+
+Réglages ▸ « Télécommande… » : découvre (mDNS) ou accepte une adresse, appaire un téléphone / une TV Android par PIN, puis le pilote ; le bouton « Envoyer vers » du lecteur lui transmet la lecture en cours. Le PC n'accepte aucune connexion entrante. Protocole : `docs/protocole-controle-v1.md`.
+
 ## Données utilisateur
 
-`%AppData%\IptvPlayer\` : `accounts.json`, `state.json` (favoris, volume, dernier compte, préférences de langue), `history.json` (historique de visionnage), `cache\` (catalogues). `%LocalAppData%\IptvPlayer\libvlc-*` : moteur VLC extrait (les anciennes versions inutilisées sont supprimées automatiquement au lancement, en arrière-plan), `%LocalAppData%\IptvPlayer\img\` : miniatures des logos.
+`%AppData%\IptvPlayer\` : `accounts.json`, `remote-targets.json` (appareils appairés, jetons chiffrés DPAPI), `state.json` (favoris, volume, dernier compte, préférences de langue), `history.json` (historique de visionnage), `cache\` (catalogues). `%LocalAppData%\IptvPlayer\libvlc-*` : moteur VLC extrait (les anciennes versions inutilisées sont supprimées automatiquement au lancement, en arrière-plan), `%LocalAppData%\IptvPlayer\img\` : miniatures des logos.
 
