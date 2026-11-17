@@ -15,6 +15,8 @@ public sealed class KnownTarget
     public int Port { get; set; } = 47231;
     public string Platform { get; set; } = "android";
     public string Fingerprint { get; set; } = "";
+    /// <summary>Appareil lie par code / QR code : les comptes (mots de passe compris) sont aussi synchronises.</summary>
+    public bool Accounts { get; set; }
     public string? TokenProtected { get; set; }
     [JsonIgnore] public string Token { get; set; } = "";
     public override string ToString() => Name;

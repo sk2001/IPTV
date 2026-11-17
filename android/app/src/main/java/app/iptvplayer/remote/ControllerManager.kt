@@ -23,6 +23,8 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import java.io.File
@@ -109,18 +111,21 @@ class ControllerManager(private val app: Application, private val vm: AppViewMod
     /** Demande à la cible d'afficher un PIN. Retourne null si tout va bien, sinon un message d'erreur. */
     suspend fun startPairing(t: FoundTarget): String? = withContext(Dispatchers.IO) {
         try {
-            val s = RemoteClient(t.host, t.port, t.fingerprint, null).pairStart(vm.remote.deviceId, vm.remote.deviceName, platform)
-            session = s; sessionTarget = t; null
+            val client = RemoteClient(t.host, t.port, t.fingerprint, null)
+            // Saisie manuelle : on demande a l'appareil ce qu'il est (PC, telephone, TV) pour savoir comment le lier ensuite.
+            val kind = if (t.platform.isEmpty()) runCatching { client.call("GET", "/info").second["platform"]?.jsonPrimitive?.contentOrNull }.getOrNull().orEmpty() else t.platform
+            val s = client.pairStart(vm.remote.deviceId, vm.remote.deviceName, platform)
+            session = s; sessionTarget = t.copy(platform = kind); null
         } catch (e: Exception) { e.message ?: e.javaClass.simpleName }
     }
 
     /** Valide le PIN saisi. Retourne null si l'appairage a réussi, "pin" si le PIN est faux, sinon un message d'erreur. */
-    suspend fun confirmPairing(pin: String): String? = withContext(Dispatchers.IO) {
+    suspend fun confirmPairing(pin: String, accounts: Boolean = false): String? = withContext(Dispatchers.IO) {
         val s = session ?: return@withContext "No pairing in progress"
         val t = sessionTarget ?: return@withContext "No pairing in progress"
         try {
             val (token, id, name) = RemoteClient(t.host, t.port, s.fingerprint, null).pairConfirm(s, pin)
-            saveKnown(_known.value.filterNot { it.id == id } + KnownTarget(id, name, t.host, t.port, t.platform, s.fingerprint, token))
+            saveKnown(_known.value.filterNot { it.id == id } + KnownTarget(id, name, t.host, t.port, t.platform, s.fingerprint, token, accounts))
             session = null; null
         } catch (e: RemoteClient.WrongPin) { "pin" }
         catch (e: Exception) { session = null; e.message ?: e.javaClass.simpleName }
@@ -130,7 +135,7 @@ class ControllerManager(private val app: Application, private val vm: AppViewMod
     suspend fun pairFromLink(t: FoundTarget): String? {
         val pin = t.pin ?: return "No PIN in this code"
         startPairing(t)?.let { return it }
-        return confirmPairing(pin).let { if (it == "pin") "Wrong or expired code" else it }
+        return confirmPairing(pin, accounts = true).let { if (it == "pin") "Wrong or expired code" else it }       // lien par code : comptes inclus
     }
 
     /** Oublie une cible localement (sans la prevenir) : utilise apres une configuration depuis un PC qui ferme son serveur. */
@@ -199,6 +204,64 @@ class ControllerManager(private val app: Application, private val vm: AppViewMod
                 }
             }
             "ok:$received:$sent" + if (skipped) ":skipped" else ""
+        } catch (e: Exception) { e.message ?: e.javaClass.simpleName }
+    }
+
+    // ------------------------------------------------------------------ Synchronisation permanente
+
+    data class SyncStatus(val at: Long, val error: String?)
+    private val _syncStatus = MutableStateFlow<Map<String, SyncStatus>>(emptyMap())
+    val syncStatus: StateFlow<Map<String, SyncStatus>> = _syncStatus.asStateFlow()
+    private val signatures = HashMap<String, String>()
+    private val trigger = kotlinx.coroutines.channels.Channel<Unit>(kotlinx.coroutines.channels.Channel.CONFLATED)
+    private var autoJob: Job? = null
+
+    /** Demande une synchronisation rapide (changement local) ; regroupee avec les autres demandes. */
+    fun requestSync() { trigger.trySend(Unit) }
+
+    /** Boucle : toutes les 30 s au plus, ou peu apres un changement local, avec chaque appareil lie. */
+    fun startAutoSync() {
+        if (autoJob != null) return
+        autoJob = scope.launch(Dispatchers.IO) {
+            delay(8_000)
+            while (true) {
+                if (vm.remote.autoSync.value) runAutoSyncOnce()
+                delay(10_000)                                                          // espacement minimal
+                kotlinx.coroutines.withTimeoutOrNull(20_000) { trigger.receive() }      // puis attente ou changement local
+            }
+        }
+    }
+
+    private fun setStatus(id: String, error: String?) { _syncStatus.value = _syncStatus.value + (id to SyncStatus(System.currentTimeMillis(), error)) }
+
+    private suspend fun runAutoSyncOnce() {
+        for (t in _known.value) {
+            try {
+                val client = clientOf(t)
+                val (code, remote) = client.callRaw("GET", "/sync/manifest")
+                if (code == 401) { setStatus(t.id, "unauthorized"); continue }
+                if (code != 200) { setStatus(t.id, "HTTP $code"); continue }
+                val withAcc = t.accounts || vm.remote.syncAccounts.value
+                if (signatures[t.id] == remote + "|" + vm.sync.signature(withAcc)) { setStatus(t.id, null); continue }      // rien de nouveau
+                val r = syncWith(t, forceAccounts = withAcc)
+                if (r.startsWith("ok:")) {
+                    signatures[t.id] = client.callRaw("GET", "/sync/manifest").second + "|" + vm.sync.signature(withAcc)
+                    setStatus(t.id, null)
+                } else setStatus(t.id, r)
+            } catch (e: Exception) { setStatus(t.id, e.message ?: e.javaClass.simpleName) }          // appareil eteint ou hors reseau : on reessaiera
+        }
+    }
+
+    /**
+     * Apres une configuration depuis un PC (qui ne peut pas etre joint ensuite) : ce telephone ouvre une offre et invite le PC
+     * a s'appairer chez lui, pour que le PC garde les deux appareils synchronises. Retourne null si tout va bien.
+     */
+    suspend fun linkBack(pc: KnownTarget): String? = withContext(Dispatchers.IO) {
+        try {
+            if (!vm.remote.openOffer()) return@withContext "No local network"
+            val o = vm.remote.offer.value ?: return@withContext "No offer"
+            val (code, _) = clientOf(pc).call("POST", "/link", buildJsonObject { put("link", o.link) })
+            if (code == 200) null else "HTTP $code"
         } catch (e: Exception) { e.message ?: e.javaClass.simpleName }
     }
 

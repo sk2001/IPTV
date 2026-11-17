@@ -7,7 +7,7 @@ import java.io.InputStream
 import java.util.zip.GZIPInputStream
 import javax.xml.parsers.SAXParserFactory
 
-data class Programme(val start: Long, val stop: Long, val title: String)
+data class Programme(val start: Long, val stop: Long, val title: String, val desc: String = "")
 
 /** Guide XMLTV : lecture en flux (SAX), fenêtre de temps limitée et chaînes demandées uniquement. */
 object Xmltv {
@@ -23,24 +23,29 @@ object Xmltv {
         val factory = SAXParserFactory.newInstance()
         runCatching { factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
         factory.newSAXParser().parse(stream, object : DefaultHandler() {
-            var channel: String? = null; var start = 0L; var stop = 0L; var inTitle = false; var title: StringBuilder? = null
+            var channel: String? = null; var start = 0L; var stop = 0L; var inTitle = false; var title: StringBuilder? = null; var inDesc = false; var desc: StringBuilder? = null
 
             override fun startElement(uri: String?, local: String?, qName: String, a: Attributes) {
                 when (qName) {
                     "programme" -> {
                         channel = a.getValue("channel")?.takeIf { wanted.isEmpty() || it in wanted }
-                        start = parseTime(a.getValue("start")); stop = parseTime(a.getValue("stop")); title = null
+                        start = parseTime(a.getValue("start")); stop = parseTime(a.getValue("stop")); title = null; desc = null
                     }
                     "title" -> if (channel != null && title == null) { inTitle = true; title = StringBuilder() }
+                    "desc" -> if (channel != null && desc == null) { inDesc = true; desc = StringBuilder() }
                 }
             }
-            override fun characters(ch: CharArray, s: Int, l: Int) { if (inTitle) title?.append(ch, s, l) }
+            override fun characters(ch: CharArray, s: Int, l: Int) {
+                if (inTitle) title?.append(ch, s, l)
+                else if (inDesc && (desc?.length ?: 0) < 500) desc?.append(ch, s, l)
+            }
             override fun endElement(uri: String?, local: String?, qName: String) {
                 if (qName == "title") inTitle = false
+                if (qName == "desc") inDesc = false
                 if (qName == "programme") {
                     val c = channel
                     if (c != null && start > 0 && stop > start && stop > from && start < to) {
-                        result.getOrPut(c) { ArrayList() }.add(Programme(start, stop, title?.toString()?.trim().orEmpty()))
+                        result.getOrPut(c) { ArrayList() }.add(Programme(start, stop, title?.toString()?.trim().orEmpty(), desc?.toString()?.trim().orEmpty()))
                     }
                     channel = null
                 }

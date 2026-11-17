@@ -26,10 +26,13 @@
                         <Image local:ImageLoader.Url="{Binding Channel.Logo}"
                                Stretch="Uniform" Margin="3" RenderOptions.BitmapScalingMode="LowQuality"/>
                     </Border>
-                    <TextBlock Text="{Binding Channel.Name}" Width="148" Margin="10,0,0,0" VerticalAlignment="Center"
+                    <TextBlock Text="{Binding Channel.Name}" Width="118" Margin="10,0,0,0" VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis"/>
+                    <ToggleButton Style="{StaticResource StarToggle}" IsChecked="{Binding Channel.IsFavorite, Mode=TwoWay}"
+                                  Click="GuideStar_Click" ToolTip="{loc:T item.favorite.tip}"/>
                 </StackPanel>
                 <ctl:GuideStrip Grid.Column="1" Entries="{Binding Entries}"
+                                SelectedEntry="{Binding DataContext.SelectedEntry, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                 ViewStart="{Binding DataContext.GuideStart, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                 Clock="{Binding DataContext.ClockNow, RelativeSource={RelativeSource AncestorType=ListBox}}"/>
             </Grid>
@@ -96,8 +99,7 @@
                 <StackPanel DockPanel.Dock="Top" Margin="0,14,0,0">
                     <Image Source="Assets/logo.png" Width="42" Height="42" Margin="0,0,0,12" HorizontalAlignment="Center"
                            RenderOptions.BitmapScalingMode="HighQuality" ToolTip="IPTV Player"/>
-                    <RadioButton Style="{StaticResource NavButton}" Content="{loc:T nav.live}" Tag="&#xE7F4;" IsChecked="{Binding IsLive, Mode=TwoWay}" GroupName="nav"/>
-                    <RadioButton Style="{StaticResource NavButton}" Content="{loc:T nav.guide}" Tag="&#xE787;" IsChecked="{Binding IsGuideNav, Mode=TwoWay}" GroupName="nav"/>
+                    <RadioButton Style="{StaticResource NavButton}" Content="{loc:T nav.live}" Tag="&#xE7F4;" IsChecked="{Binding IsLiveTvNav, Mode=TwoWay}" GroupName="nav"/>
                     <RadioButton Style="{StaticResource NavButton}" Content="{loc:T nav.movies}" Tag="&#xE714;" IsChecked="{Binding IsMovies, Mode=TwoWay}" GroupName="nav"/>
                     <RadioButton Style="{StaticResource NavButton}" Content="{loc:T nav.series}" Tag="&#xE8F1;" IsChecked="{Binding IsSeries, Mode=TwoWay}" GroupName="nav"/>
                     <RadioButton Style="{StaticResource NavButton}" Content="{loc:T nav.rec}" Tag="&#xE74E;" IsChecked="{Binding IsRecordingsNav, Mode=TwoWay}" GroupName="nav"/>
@@ -117,7 +119,7 @@
             <Border.Style>
                 <Style TargetType="Border">
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsRecordings}" Value="True">
+                        <DataTrigger Binding="{Binding IsCatHidden}" Value="True">
                             <Setter Property="Visibility" Value="Collapsed"/>
                         </DataTrigger>
                     </Style.Triggers>
@@ -170,7 +172,7 @@
             <Border.Style>
                 <Style TargetType="Border">
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsPlayerHidden}" Value="True">
+                        <DataTrigger Binding="{Binding IsListHidden}" Value="True">
                             <Setter Property="Visibility" Value="Collapsed"/>
                         </DataTrigger>
                     </Style.Triggers>
@@ -250,11 +252,75 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="2"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <Grid Margin="20,16,20,10">
+                <!-- Bandeau : émission sélectionnée (à gauche) + mini-lecteur (à droite, la vidéo vient se placer ici) -->
+                <Border Grid.Row="0" Margin="20,16,20,4" CornerRadius="14" Height="272" ClipToBounds="True">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#1F3F70" Offset="0"/>
+                            <GradientStop Color="#16202F" Offset="0.6"/>
+                            <GradientStop Color="#0E1117" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="420"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{loc:T hero.none}" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" Margin="28,0,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasHero}" Value="False">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <StackPanel Margin="28,16,12,14" VerticalAlignment="Center"
+                                    Visibility="{Binding HasHero, Converter={StaticResource B2V}}">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <Border Width="40" Height="40" CornerRadius="9" Background="#26FFFFFF" ClipToBounds="True">
+                                    <Image local:ImageLoader.Url="{Binding HeroChannel.Logo}" Stretch="Uniform" Margin="4" RenderOptions.BitmapScalingMode="LowQuality"/>
+                                </Border>
+                                <TextBlock Text="{Binding HeroChannel.Name}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Margin="12,0,12,0" TextTrimming="CharacterEllipsis" MaxWidth="260"/>
+                                <Border CornerRadius="6" Padding="8,2" VerticalAlignment="Center">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="#33FFFFFF"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HeroIsNow}" Value="True">
+                                                    <Setter Property="Background" Value="#F85149"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding HeroTag}" FontSize="10.5" FontWeight="Bold" Foreground="White"/>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="{Binding HeroTitle}" FontSize="26" FontWeight="SemiBold" TextWrapping="Wrap" MaxHeight="72" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock Text="{Binding HeroTime}" Foreground="#C8D1DC" Margin="0,6,0,0"/>
+                            <ProgressBar Maximum="1" Height="3" Margin="0,8,0,0" Background="#33FFFFFF" Value="{Binding HeroProgress, Mode=OneWay}"
+                                         Visibility="{Binding HeroIsNow, Converter={StaticResource B2V}}"/>
+                            <TextBlock Text="{Binding HeroDescription}" Foreground="#C8D1DC" TextWrapping="Wrap" MaxHeight="40" TextTrimming="CharacterEllipsis" Margin="0,8,0,0"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                <Button Style="{StaticResource AccentButton}" Command="{Binding WatchSelectedCommand}" Padding="22,9" Content="{loc:T hero.watch}"/>
+                                <ToggleButton Style="{StaticResource StarToggle}" DataContext="{Binding HeroChannel}" IsChecked="{Binding IsFavorite, Mode=TwoWay}"
+                                              Click="Star_Click" Margin="10,0,0,0" ToolTip="{loc:T item.favorite.tip}"/>
+                                <Button Margin="6,0,0,0" Command="{Binding PlayPreviousCommand}" Content="{loc:T hero.last}"
+                                        Visibility="{Binding HasPrevious, Converter={StaticResource B2V}}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="1" Margin="20,10,20,10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
@@ -290,7 +356,7 @@
                     </StackPanel>
                 </Grid>
 
-                <Grid Grid.Row="1" Margin="20,0,20,0">
+                <Grid Grid.Row="2" Margin="20,0,20,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="210"/>
                         <ColumnDefinition Width="*"/>
@@ -299,7 +365,7 @@
                     <ctl:GuideRuler Grid.Column="1" Height="30" ViewStart="{Binding GuideStart}"/>
                 </Grid>
 
-                <ProgressBar Grid.Row="2" IsIndeterminate="True">
+                <ProgressBar Grid.Row="3" IsIndeterminate="True">
                     <ProgressBar.Style>
                         <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
                             <Setter Property="Visibility" Value="Hidden"/>
@@ -312,8 +378,8 @@
                     </ProgressBar.Style>
                 </ProgressBar>
 
-                <Grid Grid.Row="3">
-                    <ListBox x:Name="GuideList" Margin="14,4,14,10" ItemsSource="{Binding GuideRows}"
+                <Grid Grid.Row="4">
+                    <ListBox x:Name="GuideList" Margin="14,4,14,10" ItemsSource="{Binding GuideRows}" SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
                              ItemTemplate="{StaticResource GuideRowTemplate}" VirtualizingPanel.ScrollUnit="Pixel"
                              PreviewMouseWheel="GuideList_PreviewMouseWheel">
                         <ListBox.ItemContainerStyle>
@@ -401,12 +467,28 @@
         </Border>
 
         <!-- Lecteur VLC -->
-        <vlc:VideoView x:Name="Video" Grid.Column="3" Background="Black">
+        <vlc:VideoView x:Name="Video" Background="Black">
             <vlc:VideoView.Style>
                 <Style TargetType="vlc:VideoView">
+                    <Setter Property="Grid.Column" Value="3"/>
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding IsPlayerHidden}" Value="True">
                             <Setter Property="Visibility" Value="Collapsed"/>
+                        </DataTrigger>
+                        <!-- Lecture en direct : la vidéo occupe toute la zone de contenu (catégories et liste masquées) -->
+                        <DataTrigger Binding="{Binding IsLivePlayer}" Value="True">
+                            <Setter Property="Grid.Column" Value="1"/>
+                            <Setter Property="Grid.ColumnSpan" Value="3"/>
+                        </DataTrigger>
+                        <!-- Guide : la vidéo devient un mini-lecteur 16:9 à droite du bandeau -->
+                        <DataTrigger Binding="{Binding IsMini}" Value="True">
+                            <Setter Property="Grid.Column" Value="2"/>
+                            <Setter Property="Grid.ColumnSpan" Value="2"/>
+                            <Setter Property="HorizontalAlignment" Value="Right"/>
+                            <Setter Property="VerticalAlignment" Value="Top"/>
+                            <Setter Property="Width" Value="384"/>
+                            <Setter Property="Height" Value="216"/>
+                            <Setter Property="Margin" Value="0,44,38,0"/>
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
@@ -437,10 +519,14 @@
                             <GradientStop Color="#00000000" Offset="1"/>
                         </LinearGradientBrush>
                     </Border.Background>
-                    <StackPanel>
-                        <TextBlock x:Name="TitleText" Foreground="White" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                        <TextBlock x:Name="SubtitleText" Foreground="#C8D1DC" FontSize="13" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"/>
-                    </StackPanel>
+                    <DockPanel>
+                        <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Content="&#xE72B;" Foreground="White" Margin="0,0,10,0"
+                                Click="BackToGuide_Click" ToolTip="{loc:T hero.back}"/>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="TitleText" Foreground="White" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="SubtitleText" Foreground="#C8D1DC" FontSize="13" Margin="0,3,0,0" TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+                    </DockPanel>
                 </Border>
 
                 <Border x:Name="Controls" VerticalAlignment="Bottom" Padding="16,36,16,12" Visibility="Collapsed">

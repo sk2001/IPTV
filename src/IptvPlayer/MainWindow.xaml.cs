@@ -8,6 +8,7 @@ using System.Windows.Threading;
 using IptvPlayer.Localization;
 using IptvPlayer.Models;
 using IptvPlayer.Services;
+using IptvPlayer.Services.Remote;
 using IptvPlayer.ViewModels;
 using LibVLCSharp.Shared;
 using LibVLCSharp.Shared.Structures;
@@ -66,7 +67,12 @@ public partial class MainWindow : Window
         _hideTimer.Tick += (_, _) => HideControls();
         _recTimer.Tick += (_, _) => UpdateRecBadge();
         Overlay.MouseMove += (_, _) => ShowControls();
-        Overlay.MouseLeftButtonDown += (_, e) => { if (e.ClickCount == 2) ToggleFullscreen(); };
+        Overlay.MouseLeftButtonDown += (_, e) =>
+        {
+            if (_vm.IsMini) { if (e.ClickCount == 1 && _hasMedia) { e.Handled = true; _vm.Mode = MainViewModel.NavMode.Live; } return; }   // clic sur le mini-lecteur : plein format
+            if (e.ClickCount == 2) ToggleFullscreen();
+        };
+        AddHandler(IptvPlayer.Controls.GuideStrip.EntryClickedEvent, new IptvPlayer.Controls.EntryClickedEventHandler(GuideEntry_Clicked));
         Overlay.PreviewKeyDown += (_, e) => HandleKey(e);
         PreviewKeyDown += (_, e) => HandleKey(e);
 
@@ -99,6 +105,8 @@ public partial class MainWindow : Window
         _volumeInit = false;
 
         _vm.Initialize();
+        RemoteHub.Auto = new AutoSync(_vm, RemoteHub.Store);
+        RemoteHub.Auto.Start();
         _ = InitVlcAsync();   // le scan des plugins VLC (lent au 1er lancement) ne bloque plus l'UI
         if (!_vm.HasAccounts) OpenAccounts();
     }
@@ -223,8 +231,14 @@ public partial class MainWindow : Window
         if (e.PropertyName == nameof(MainViewModel.NowSubtitle))
             SubtitleText.Text = _vm.NowSubtitle;
         else if (e.PropertyName == nameof(MainViewModel.IsPlayerHidden))
-            // La superposition du lecteur est une fenêtre séparée : on la masque pour dégager le guide / la liste.
+            // La superposition du lecteur est une fenêtre séparée : on la masque pour dégager les enregistrements.
             Overlay.Visibility = _vm.IsPlayerHidden ? Visibility.Collapsed : Visibility.Visible;
+        else if (e.PropertyName == nameof(MainViewModel.IsMini) && _vm.IsMini)
+        {
+            // Retour au guide : la lecture continue dans le mini-lecteur, sans commandes.
+            Controls.Visibility = Visibility.Collapsed; TopBar.Visibility = Visibility.Collapsed;
+            if (_fullscreen) ToggleFullscreen();
+        }
     }
 
     // ------------------------------------------------------------------ Enregistrement
@@ -460,7 +474,7 @@ public partial class MainWindow : Window
 
     private void ShowControls()
     {
-        if (!_hasMedia) return;
+        if (!_hasMedia || _vm.IsMini) return;
         Controls.Visibility = Visibility.Visible;
         TopBar.Visibility = Visibility.Visible;
         Overlay.Cursor = null;
@@ -609,7 +623,8 @@ public partial class MainWindow : Window
             case Key.Space: TogglePause(); break;
             case Key.F:
             case Key.F11: ToggleFullscreen(); break;
-            case Key.Escape: if (_fullscreen) ToggleFullscreen(); else return; break;
+            case Key.Escape: if (_fullscreen) ToggleFullscreen(); else if (_vm.Mode == MainViewModel.NavMode.Live) _vm.Mode = MainViewModel.NavMode.Guide; else return; break;
+            case Key.Q: _ = _vm.PlayPrevious(); break;
             case Key.M: ToggleMute(); break;
             case Key.R: ToggleRecord(); break;
             case Key.Up: VolumeSlider.Value = Math.Min(100, VolumeSlider.Value + 5); break;
@@ -634,6 +649,18 @@ public partial class MainWindow : Window
     }
 
     // ---- Guide TV ----
+
+    private void GuideEntry_Clicked(object sender, IptvPlayer.Controls.EntryClickedEventArgs e)
+    {
+        if (e.Source is FrameworkElement { DataContext: GuideRow row }) _vm.SelectGuide(row, e.Entry);
+    }
+
+    private void GuideStar_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: GuideRow row }) _vm.FavoriteChanged(row.Channel);
+    }
+
+    private void BackToGuide_Click(object sender, RoutedEventArgs e) => _vm.Mode = MainViewModel.NavMode.Guide;
 
     private void GuideRow_DoubleClick(object sender, MouseButtonEventArgs e)
     {

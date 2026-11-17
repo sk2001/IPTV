@@ -11,6 +11,9 @@ Lecteur IPTV avec **VLC embarqué** : application **Windows** autonome (WPF / .N
 
 ## Fonctionnalités
 
+- **TV en direct « à la Plex »** : l'onglet *TV en direct* s'ouvre sur le **guide en grille** ; un bandeau affiche l'émission sélectionnée (chaîne, « à l'antenne » / « à suivre », horaire, progression, description, boutons *Regarder*, favori et *Dernière chaîne*), et la lecture en cours reste visible dans un **mini-lecteur** à droite du bandeau (clic = plein format, `Échap` = retour au guide). Touche `Q` : retour à la chaîne précédente. Les chaînes sans programme restent listées (ligne « aucune information »).
+- **Android / Android TV** : même écran *Live* (bandeau, guide en grille, mini-lecteur) pour téléphone, tablette et TV (détails : `android/README.md`).
+- **Synchronisation permanente** : les appareils liés (PC et appareils Android) restent à jour automatiquement (toutes les 30 s et après chaque changement) : comptes (appareils liés par code / QR code, ou option), favoris, historique et progression, réglages. Désactivable dans Réglages ▸ Télécommande.
 - Comptes multiples : **Xtream Codes** (serveur + identifiants, ou collage direct d'une URL `get.php?username=…&password=…`) et **playlists M3U** (URL ou fichier local), avec bouton *Tester*.
 - Mots de passe chiffrés avec DPAPI (`%AppData%\IptvPlayer\accounts.json`).
 - Live, Films, Séries (choix de la saison / de l'épisode), catégories, recherche instantanée, favoris.

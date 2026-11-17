@@ -33,7 +33,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(60) };
 
     [ObservableProperty] private Account? _selectedAccount;
-    [ObservableProperty] private NavMode _mode = NavMode.Live;
+    [ObservableProperty] private NavMode _mode = NavMode.Guide;      // « TV en direct » s'ouvre sur le guide (comme Plex)
 
     // Guide TV
     [ObservableProperty] private IReadOnlyList<GuideRow> _guideRows = Array.Empty<GuideRow>();
@@ -46,8 +46,16 @@ public sealed partial class MainViewModel : ObservableObject
     public bool IsGuide => Mode == NavMode.Guide;
     public bool IsNotGuide => Mode != NavMode.Guide;
     public bool IsRecordings => Mode == NavMode.Recordings;
-    /// <summary>Guide et Enregistrements remplacent le lecteur : la vidéo (et sa superposition) est masquée.</summary>
-    public bool IsPlayerHidden => Mode is NavMode.Guide or NavMode.Recordings;
+    /// <summary>Seuls les Enregistrements remplacent le lecteur ; dans le guide, la vidéo devient un mini-lecteur.</summary>
+    public bool IsPlayerHidden => Mode == NavMode.Recordings;
+    /// <summary>Le guide et les Enregistrements remplacent la liste des contenus.</summary>
+    public bool IsListHidden => Mode is NavMode.Guide or NavMode.Live or NavMode.Recordings;
+    /// <summary>Lecture en direct plein format : ni liste ni catégories, la vidéo prend toute la largeur (le guide sert à changer de chaîne).</summary>
+    public bool IsLivePlayer => Mode == NavMode.Live;
+    public bool IsCatHidden => Mode is NavMode.Live or NavMode.Recordings;
+    /// <summary>Lecture réduite dans le bandeau du guide.</summary>
+    public bool IsMini => Mode == NavMode.Guide;
+    public bool IsLiveTvNav { get => Mode is NavMode.Guide or NavMode.Live; set { if (value) Mode = NavMode.Guide; } }
 
     // Enregistrements
     [ObservableProperty] private IReadOnlyList<RecordingFile> _recordings = Array.Empty<RecordingFile>();
@@ -128,6 +136,7 @@ public sealed partial class MainViewModel : ObservableObject
     private void OnClockTick()
     {
         ClockNow = DateTime.Now;
+        UpdateHero();
         foreach (var i in Items) i.RefreshEpg();
         UpdateNowSubtitle();
     }
@@ -151,6 +160,11 @@ public sealed partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsRecordings));
         OnPropertyChanged(nameof(IsRecordingsNav));
         OnPropertyChanged(nameof(IsPlayerHidden));
+        OnPropertyChanged(nameof(IsListHidden));
+        OnPropertyChanged(nameof(IsLivePlayer));
+        OnPropertyChanged(nameof(IsCatHidden));
+        OnPropertyChanged(nameof(IsMini));
+        OnPropertyChanged(nameof(IsLiveTvNav));
         if (newValue == NavMode.Recordings) _ = RefreshRecordingsAsync();
 
         if (KindOf(oldValue) != KindOf(newValue))
@@ -162,6 +176,71 @@ public sealed partial class MainViewModel : ObservableObject
     }
 
     partial void OnGuideStartChanged(DateTime value) => OnPropertyChanged(nameof(GuideDateText));
+
+    // ---------------------------------------------------------------- Bandeau « à la Plex » (émission sélectionnée)
+
+    [ObservableProperty] private GuideRow? _selectedRow;
+    [ObservableProperty] private EpgEntry? _selectedEntry;
+    [ObservableProperty] private MediaItem? _previousChannel;
+    [ObservableProperty] private bool _hasHero;
+    [ObservableProperty] private bool _heroIsNow;
+    [ObservableProperty] private string _heroTag = "";
+    [ObservableProperty] private string _heroTitle = "";
+    [ObservableProperty] private string _heroTime = "";
+    [ObservableProperty] private string _heroDescription = "";
+    [ObservableProperty] private double _heroProgress;
+
+    public MediaItem? HeroChannel => SelectedRow?.Channel;
+    public bool HasPrevious => PreviousChannel != null;
+
+    partial void OnSelectedRowChanged(GuideRow? value) { OnPropertyChanged(nameof(HeroChannel)); UpdateHero(); }
+    partial void OnSelectedEntryChanged(EpgEntry? value) => UpdateHero();
+    partial void OnPreviousChannelChanged(MediaItem? value) => OnPropertyChanged(nameof(HasPrevious));
+
+    /// <summary>Clic sur un programme du guide : le bandeau affiche cette émission.</summary>
+    public void SelectGuide(GuideRow row, EpgEntry? entry)
+    {
+        SelectedRow = row;
+        SelectedEntry = entry;
+    }
+
+    private void UpdateHero()
+    {
+        var row = SelectedRow;
+        if (row == null) { HasHero = false; return; }
+        var now = DateTime.Now;
+        var e = SelectedEntry != null && row.Entries.Contains(SelectedEntry)
+            ? SelectedEntry
+            : row.Entries.FirstOrDefault(x => x.Start <= now && x.End > now) ?? row.Entries.FirstOrDefault(x => x.Start > now);
+        HasHero = true;
+        if (e == null)
+        {
+            HeroIsNow = false; HeroProgress = 0; HeroTag = "";
+            HeroTitle = row.Channel.Name; HeroTime = ""; HeroDescription = Loc.T("hero.noDesc");
+            return;
+        }
+        HeroIsNow = e.Start <= now && e.End > now;
+        HeroTag = HeroIsNow ? Loc.T("hero.onNow") : e.Start > now ? Loc.T("hero.upNext", e.Start.ToString("t")) : Loc.T("hero.ended");
+        HeroTitle = e.Title;
+        HeroTime = $"{e.Start:HH:mm} – {e.End:HH:mm}  ·  {(int)(e.End - e.Start).TotalMinutes} min";
+        HeroDescription = string.IsNullOrWhiteSpace(e.Description) ? Loc.T("hero.noDesc") : e.Description!;
+        HeroProgress = HeroIsNow ? Math.Clamp((now - e.Start).TotalSeconds / Math.Max(1, (e.End - e.Start).TotalSeconds), 0, 1) : 0;
+    }
+
+    private void EnsureGuideSelection(IReadOnlyList<GuideRow> rows)
+    {
+        if (rows.Count == 0) { SelectedRow = null; return; }
+        if (SelectedRow != null && rows.Any(r => ReferenceEquals(r, SelectedRow))) return;
+        string? keep = SelectedRow?.Channel.Id ?? _playing?.Id;
+        SelectedRow = (keep == null ? null : rows.FirstOrDefault(r => r.Channel.Id == keep)) ?? rows[0];
+    }
+
+    [RelayCommand]
+    private Task WatchSelected() => SelectedRow == null ? Task.CompletedTask : PlayFromGuideAsync(SelectedRow);
+
+    /// <summary>Retour à la chaîne précédente (touche « last » d'une télécommande).</summary>
+    [RelayCommand]
+    public Task PlayPrevious() => PreviousChannel == null ? Task.CompletedTask : PlayAsync(PreviousChannel);
 
     partial void OnSelectedAccountChanged(Account? value)
     {
@@ -392,30 +471,28 @@ public sealed partial class MainViewModel : ObservableObject
         EpgData.Current = data;
         foreach (var i in Items) i.RefreshEpg();
         UpdateNowSubtitle();
-        if (data == null) GuideRows = Array.Empty<GuideRow>();
-        else if (IsGuide) RebuildGuideRows();
+        if (IsGuide) RebuildGuideRows();
     }
 
     private async void RebuildGuideRows()
     {
         var epg = _epg;
         var items = Items;
-        if (epg == null) { GuideRows = Array.Empty<GuideRow>(); UpdateGuideEmpty(); return; }
-
         var rows = await Task.Run(() =>
         {
             var list = new List<GuideRow>();
             foreach (var i in items)
             {
                 if (i.Kind != ContentKind.Live) continue;
-                var e = epg.Find(i);
-                if (e != null) list.Add(new GuideRow(i, e));
+                IReadOnlyList<EpgEntry> e = (IReadOnlyList<EpgEntry>?)epg?.Find(i) ?? Array.Empty<EpgEntry>();
+                list.Add(new GuideRow(i, e));
             }
             return list;
         });
 
         if (!ReferenceEquals(items, Items) || !ReferenceEquals(epg, _epg)) return;   // résultat périmé
         GuideRows = rows;
+        EnsureGuideSelection(rows);
         UpdateGuideEmpty();
     }
 
@@ -509,6 +586,7 @@ public sealed partial class MainViewModel : ObservableObject
 
         if (string.IsNullOrEmpty(item.StreamUrl)) return;
         NowSubtitle = "";
+        if (_playing != null && _playing.Kind == ContentKind.Live && item.Kind == ContentKind.Live && _playing.Id != item.Id) PreviousChannel = _playing;
         _playing = item;
         WatchContext? movieCtx = null;
         if (item.Kind == ContentKind.Movie)
@@ -636,6 +714,7 @@ public sealed partial class MainViewModel : ObservableObject
         var fav = Categories.FirstOrDefault(c => c.Id == FavId);
         if (fav != null) fav.Count += item.IsFavorite ? 1 : -1;
         if (SelectedCategory?.Id == FavId) ApplyFilter(immediate: true);
+        RemoteHub.Auto?.Request();          // favori modifie : propager sans attendre
     }
 
     /// <summary>Après une synchronisation : relit les favoris sur le catalogue affiché.</summary>

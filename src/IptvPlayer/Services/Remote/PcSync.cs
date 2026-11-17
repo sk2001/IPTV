@@ -28,7 +28,7 @@ public static class PcSync
         int received = 0, sent = 0; var skipped = false;
         foreach (var c in engine.Collections.ToList())
         {
-            if (c == "accounts" && !vm.State.SyncAccounts) continue;
+            if (c == "accounts" && !vm.State.SyncAccounts && !t.Accounts) continue;
             var (code, text) = await client.CallRawAsync(HttpMethod.Get, $"/sync/{c}");
             if (code == 403) { skipped = true; continue; }
             if (code != 200) throw new IOException($"HTTP {code}");

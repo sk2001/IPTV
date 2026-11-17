@@ -53,7 +53,7 @@ public sealed class Loc : INotifyPropertyChanged
     private static readonly Dictionary<string, (string En, string Fr)> Table = new()
     {
         // Navigation / liste
-        ["nav.live"] = ("Live", "Live"),
+        ["nav.live"] = ("Live TV", "TV en direct"),
         ["nav.guide"] = ("Guide", "Guide"),
         ["nav.movies"] = ("Movies", "Films"),
         ["nav.series"] = ("Series", "Séries"),
@@ -225,6 +225,16 @@ public sealed class Loc : INotifyPropertyChanged
         ["lic.missing"] = ("(document “{0}” not found in the application)", "(document « {0} » introuvable dans l'application)"),
 
         // Contrôle à distance (PC = contrôleur)
+        ["guide.noInfo"] = ("No program information", "Aucune information de programme"),
+        ["hero.onNow"] = ("ON NOW", "À L'ANTENNE"),
+        ["hero.upNext"] = ("UP NEXT · {0}", "À SUIVRE · {0}"),
+        ["hero.ended"] = ("ENDED", "TERMINÉ"),
+        ["hero.watch"] = ("Watch", "Regarder"),
+        ["hero.last"] = ("Last channel (Q)", "Dernière chaîne (Q)"),
+        ["hero.none"] = ("Select a program in the guide.", "Sélectionnez un programme dans le guide."),
+        ["hero.noDesc"] = ("No description available.", "Aucune description disponible."),
+        ["hero.back"] = ("Back to the guide (Esc)", "Retour au guide (Échap)"),
+        ["hero.expand"] = ("Click to watch full size", "Cliquer pour regarder en grand"),
         ["rem.section"] = ("CONTROL OTHER DEVICES", "PILOTER D'AUTRES APPAREILS"),
         ["rem.open"] = ("Remote control…", "Télécommande…"),
         ["rem.sendTo"] = ("Send to another device", "Envoyer vers un autre appareil"),
@@ -266,6 +276,10 @@ public sealed class Loc : INotifyPropertyChanged
         ["share.noNetwork"] = ("No local network found. Connect to Wi-Fi or Ethernet.", "Aucun réseau local trouvé. Connectez-vous au Wi-Fi ou à Ethernet."),
         ["share.firewall"] = ("The first time, Windows may ask to allow IPTV Player on private networks: allow it so that the other device can connect.", "La première fois, Windows peut demander d'autoriser IPTV Player sur les réseaux privés : autorisez-le pour que l'autre appareil puisse se connecter."),
         ["rem.certChanged"] = ("This device's security certificate has changed (app reinstalled or device replaced). Forget it in the Remote control window, then pair it again.", "Le certificat de sécurité de cet appareil a changé (appli réinstallée ou appareil remplacé). Oubliez-le dans la fenêtre Télécommande, puis appairez-le à nouveau."),
+        ["rem.autoSync"] = ("Keep this PC and linked devices in sync automatically (every 30 s and after each change)", "Garder ce PC et les appareils liés à jour automatiquement (toutes les 30 s et après chaque changement)"),
+        ["rem.autoSyncOk"] = ("Kept in sync automatically — last check {0}", "Synchronisé automatiquement — dernière vérification {0}"),
+        ["rem.autoSyncErr"] = ("Automatic sync: {0} (will retry)", "Synchro automatique : {0} (nouvel essai)"),
+        ["share.linked"] = ("“{0}” is now linked: it stays in sync with this PC while both apps are open.", "« {0} » est maintenant lié : il reste synchronisé avec ce PC tant que les deux applications sont ouvertes."),
         ["rem.back"] = ("← Devices", "← Appareils"),
 
         // Divers

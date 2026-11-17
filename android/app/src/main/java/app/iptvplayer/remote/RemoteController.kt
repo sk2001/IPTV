@@ -25,7 +25,7 @@ import java.util.UUID
 import javax.net.ssl.SSLServerSocket
 
 @Serializable
-private data class RemoteSettings(val enabled: Boolean = false, val deviceId: String = "", val deviceName: String = "", val syncAccounts: Boolean = false)
+private data class RemoteSettings(val enabled: Boolean = false, val deviceId: String = "", val deviceName: String = "", val syncAccounts: Boolean = false, val autoSync: Boolean = true)
 
 /**
  * Cette appli comme cible : serveur de contrôle HTTPS (port 47231), annonce mDNS, appairage par PIN.
@@ -55,6 +55,10 @@ class RemoteController(private val app: Application, private val vm: AppViewMode
     /** Synchroniser aussi les comptes (mots de passe compris) : doit etre active sur les deux appareils. */
     val syncAccounts: StateFlow<Boolean> = _syncAccounts.asStateFlow()
     fun setSyncAccounts(on: Boolean) { _syncAccounts.value = on; save() }
+    private val _autoSync = MutableStateFlow(settings.autoSync)
+    /** Garde les appareils lies a jour en permanence (toutes les 30 s et apres chaque changement). */
+    val autoSync: StateFlow<Boolean> = _autoSync.asStateFlow()
+    fun setAutoSync(on: Boolean) { _autoSync.value = on; save() }
     val deviceId: String get() = settings.deviceId
 
     /** Offre en cours : lien de QR code + adresse + PIN affichables a l'ecran. */
@@ -91,7 +95,7 @@ class RemoteController(private val app: Application, private val vm: AppViewMode
         if (_offer.value != null && !pairing.offerActive) _offer.value = null      // utilisee ou expiree
     }
 
-    private fun save() { runCatching { settingsFile.writeText(json.encodeToString(settings.copy(enabled = _enabled.value, syncAccounts = _syncAccounts.value))) } }
+    private fun save() { runCatching { settingsFile.writeText(json.encodeToString(settings.copy(enabled = _enabled.value, syncAccounts = _syncAccounts.value, autoSync = _autoSync.value))) } }
 
     fun setEnabled(on: Boolean) {
         if (on == _enabled.value) return

@@ -17,6 +17,7 @@ public sealed class AppState
     public string AudioLangVod { get; set; } = "en";      // films & séries
     public string AudioLangLive { get; set; } = "";       // chaînes live
     public string SubLangVod { get; set; } = "";          // sous-titres films & séries ("" = aucun)
+    public bool AutoSync { get; set; } = true;            // garder les appareils lies a jour en permanence
     public bool SyncAccounts { get; set; } = false;       // synchroniser aussi les comptes (doit etre active des deux cotes)
     public bool ResumePlayback { get; set; } = true;      // reprendre là où on s'est arrêté
 }

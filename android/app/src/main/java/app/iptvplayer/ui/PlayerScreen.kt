@@ -93,7 +93,7 @@ fun PlayerScreen(vm: AppViewModel) {
         }
     }
 
-    BackHandler { vm.closePlayer() }
+    BackHandler { if (req.kind == Kind.LIVE) vm.minimize() else vm.closePlayer() }       // direct : retour au guide, la lecture continue en mini
 
     LaunchedEffect(controls, touch, ps.playing) {
         if (controls && ps.playing) { delay(3500); controls = false }
@@ -127,11 +127,7 @@ fun PlayerScreen(vm: AppViewModel) {
             }
             .pointerInput(Unit) { detectTapGestures { controls = !controls; touch = System.nanoTime() } },
     ) {
-        AndroidView(
-            factory = { ctx -> VLCVideoLayout(ctx).also { vm.player.attach(it) } },
-            modifier = Modifier.fillMaxSize(),
-            onRelease = { vm.player.detach() },
-        )
+        PlayerSurface(vm, Modifier.fillMaxSize())
 
         // Mise en mémoire tampon / erreur
         when {
@@ -162,7 +158,7 @@ fun PlayerScreen(vm: AppViewModel) {
                     .padding(horizontal = 8.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = { vm.closePlayer() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back), tint = Color.White) }
+                IconButton(onClick = { if (req.kind == Kind.LIVE) vm.minimize() else vm.closePlayer() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back), tint = Color.White) }
                 Text(req.title, color = Color.White, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 IconButton(onClick = { sendTo = true; touch = System.nanoTime() }) { Icon(Icons.Filled.Cast, stringResource(R.string.send_to), tint = Color.White) }
             }
@@ -222,3 +218,14 @@ fun PlayerScreen(vm: AppViewModel) {
         )
     }
 }
+
+/** Surface video libVLC (plein ecran ou mini-lecteur) ; une seule est rattachee au lecteur a la fois. */
+@Composable
+fun PlayerSurface(vm: AppViewModel, modifier: Modifier = Modifier) {
+    AndroidView(
+        factory = { ctx -> VLCVideoLayout(ctx).also { vm.player.attach(it) } },
+        modifier = modifier,
+        onRelease = { vm.player.detach(it) },
+    )
+}
+

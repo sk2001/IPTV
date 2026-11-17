@@ -168,7 +168,7 @@ private fun DeviceList(vm: AppViewModel) {
                             val r = if (k == null) "Unknown device" else c.syncWith(k, forceAccounts = true)
                             if (r.startsWith("ok:")) {
                                 val p = r.split(':'); done = String.format(okText, p[1], p[2])
-                                if (k != null && k.platform == "windows") c.dropLocal(k.id)      // le PC referme son serveur apres le transfert
+                                if (k != null && k.platform == "windows") { c.linkBack(k); c.dropLocal(k.id) }      // le PC se lie a ce telephone puis referme son serveur
                                 if (vm.accounts.value.isNotEmpty()) vm.controllerOpen.value = false
                             } else error = r
                         }
@@ -245,6 +245,11 @@ private fun Remote(vm: AppViewModel, t: KnownTarget) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = { c.command("audioTrack", "id" to "next") }) { Text(stringResource(R.string.audio_track)) }
         OutlinedButton(onClick = { c.command("subtitleTrack", "id" to "next") }) { Text(stringResource(R.string.subtitles)) }
+    }
+    val statuses by c.syncStatus.collectAsState()
+    statuses[t.id]?.let { st ->
+        Text(if (st.error == null) stringResource(R.string.ctrl_autosync_ok, formatClock(st.at)) else stringResource(R.string.ctrl_autosync_err, st.error),
+            color = if (st.error == null) Palette.Muted else Danger, fontSize = 13.sp)
     }
     var syncMsg by remember { mutableStateOf<String?>(null) }
     var syncing by remember { mutableStateOf(false) }

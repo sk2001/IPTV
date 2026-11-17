@@ -23,6 +23,8 @@ class OfferTest {
         assertTrue(pairWith(pin) is PairResult.Ok)
         assertFalse(pairing.offerActive)                      // usage unique
         assertTrue(pairing.accountsAllowed("dev"))            // l'appareil configure peut echanger les comptes
+        now += 3_600_000
+        assertTrue(pairing.accountsAllowed("dev"))            // ... durablement (synchro permanente)
         assertFalse(pairing.accountsAllowed("someone-else"))
     }
 

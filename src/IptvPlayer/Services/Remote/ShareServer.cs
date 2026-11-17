@@ -43,6 +43,8 @@ public sealed class ShareServer : IDisposable
     public string? PairedName { get; private set; }
     public int Collections { get; private set; }
     public event Action? Changed;
+    /// <summary>Le telephone invite le PC a s'appairer chez lui (lien d'offre) pour rester synchronise ensuite.</summary>
+    public event Action<string>? LinkRequested;
 
     public ShareServer(string deviceId, string deviceName, Func<string, string> syncGet, Func<string, string, int> syncPut)
     {
@@ -50,7 +52,7 @@ public sealed class ShareServer : IDisposable
         using var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var req = new CertificateRequest("CN=IPTV Player", key, HashAlgorithmName.SHA256);
         using var self = req.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
-        _cert = new X509Certificate2(self.Export(X509ContentType.Pfx));        // reimport : la cle privee doit etre utilisable par SChannel
+        _cert = X509CertificateLoader.LoadPkcs12(self.Export(X509ContentType.Pfx), null);        // reimport : la cle privee doit etre utilisable par SChannel
         Fingerprint = Convert.ToHexString(SHA256.HashData(_cert.RawData)).ToLowerInvariant();
     }
 
@@ -79,7 +81,7 @@ public sealed class ShareServer : IDisposable
         }
     }
 
-    private static bool IsPrivate(IPAddress? a)
+    internal static bool IsPrivate(IPAddress? a)
     {
         if (a == null) return false;
         if (a.IsIPv4MappedToIPv6) a = a.MapToIPv4();
@@ -168,6 +170,13 @@ public sealed class ShareServer : IDisposable
                 if (col is not ("favorites" or "history" or "settings" or "accounts")) return (404, Err("not_found", "Unknown collection"));
                 if (method == "GET") { var r = _syncGet(col); Count(); return (200, r); }
                 if (method == "PUT") { var n = _syncPut(col, body); Count(); return (200, new JsonObject { ["applied"] = n }.ToJsonString()); }
+            }
+            if (route == "/link" && method == "POST")
+            {
+                var link = JsonNode.Parse(body)?["link"]?.GetValue<string>();
+                if (string.IsNullOrEmpty(link)) return (400, Err("bad_request", "link"));
+                LinkRequested?.Invoke(link);
+                return (200, "{\"ok\":true}");
             }
             if (route == "/state" && method == "GET") return (200, new JsonObject { ["protocol"] = 1, ["state"] = "idle" }.ToJsonString());
             if (route == "/pair" && method == "DELETE") { lock (_lock) _tokenHash = null; return (200, "{\"ok\":true}"); }

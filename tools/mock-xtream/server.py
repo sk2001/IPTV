@@ -5,7 +5,9 @@
 Depuis l'émulateur Android, le PC est joignable à http://10.0.2.2:<port>.
 Les flux (live, films, épisodes) sont redirigés vers un flux HLS de test public.
 """
-import json, struct, sys, zlib
+import json, struct, sys, time, zlib
+from datetime import datetime, timedelta, timezone
+from xml.sax.saxutils import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -57,6 +59,30 @@ def series_info(sid: str):
     return {"info": {"name": f"Series {sid}"}, "episodes": eps}
 
 
+SHOWS = ["Morning News", "Bright Days", "The Late Show", "Wild Planet", "City Detectives", "Cooking Together", "Sports Tonight",
+         "Kids Corner", "Cinema Classics", "Night Talk", "Travel Stories", "Science Hour", "Music Live", "Weather & Traffic"]
+
+
+def xmltv() -> bytes:
+    """Guide fictif : chaque chaine (ch1..ch60) a des programmes de 30 a 90 min de -4 h a +38 h, avec description."""
+    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    out = ['<?xml version="1.0" encoding="UTF-8"?><tv>']
+    for i in range(1, 61):
+        t = now - timedelta(hours=4, minutes=(i * 7) % 60)
+        end = now + timedelta(hours=38)
+        n = 0
+        while t < end:
+            dur = [30, 60, 90, 45][(i + n) % 4]
+            stop = t + timedelta(minutes=dur)
+            title = SHOWS[(i * 3 + n) % len(SHOWS)]
+            out.append('<programme start="%s +0000" stop="%s +0000" channel="ch%d"><title>%s</title><desc>%s</desc></programme>' % (
+                t.strftime("%Y%m%d%H%M%S"), stop.strftime("%Y%m%d%H%M%S"), i, escape(title),
+                escape("%s on channel %d. Episode %d: a short description of what is on, used to test the guide banner. Lorem ipsum dolor sit amet, consectetur adipiscing elit." % (title, i, n + 1))))
+            t = stop; n += 1
+    out.append('</tv>')
+    return "".join(out).encode()
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args): print("%s %s" % (self.address_string(), fmt % args), flush=True)
 
@@ -85,7 +111,7 @@ class Handler(BaseHTTPRequestHandler):
         if u.path.split("/")[1:2] and u.path.split("/")[1] in ("live", "movie", "series"):
             self.send_response(302); self.send_header("Location", STREAM); self.send_header("Content-Length", "0"); self.end_headers(); return
         if u.path == "/xmltv.php":
-            return self.send_bytes(b'<?xml version="1.0"?><tv></tv>', "application/xml")
+            return self.send_bytes(xmltv(), "application/xml")
         self.send_bytes(b"not found", "text/plain", 404)
 
 

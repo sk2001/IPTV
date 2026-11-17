@@ -152,6 +152,7 @@ public partial class RemoteWindow : Window
     {
         _selected = t; _client?.Dispose(); _client = new RemoteClient(t.Host, t.Port, t.Fingerprint, t.Token);
         SyncAccountsBox.IsChecked = RemoteHub.Vm?.State.SyncAccounts ?? false; SyncText.Text = "";
+        AutoSyncBox.IsChecked = RemoteHub.Vm?.State.AutoSync ?? true; ShowAutoStatus();
         TargetName.Text = t.Name; TargetStatus.Text = Loc.T("rem.connecting"); Message.Text = "";
         ControlPanel.Visibility = Visibility.Visible; ListsPanel.Visibility = Visibility.Collapsed;
         _ = PollAsync(); _poll.Start();
@@ -175,6 +176,7 @@ public partial class RemoteWindow : Window
             var state = o["state"]?.GetValue<string>() ?? "";
             _muted = o["muted"]?.GetValue<bool>() ?? false;
             var vol = o["volume"]?.GetValue<int>() ?? 0;
+            ShowAutoStatus();
             TargetStatus.Text = title == null ? Loc.T("rem.idle") : $"{title} — {state}   ·   {Loc.T("rem.volume", vol)}";
         }
         catch (Exception ex) { TargetStatus.Text = ex.Message; }
@@ -199,6 +201,22 @@ public partial class RemoteWindow : Window
             SyncText.Text = Loc.T("rem.syncDone", rcv, sent) + (skipped ? " " + Loc.T("rem.syncSkipped") : "");
         }
         catch (Exception ex) { SyncText.Text = ex.Message; }
+    }
+
+    private void AutoSync_Changed(object s, RoutedEventArgs e)
+    {
+        if (RemoteHub.Vm == null) return;
+        RemoteHub.Vm.State.AutoSync = AutoSyncBox.IsChecked == true;
+        StateStore.Save(RemoteHub.Vm.State);
+        if (RemoteHub.Vm.State.AutoSync) RemoteHub.Auto?.Request();
+    }
+
+    private void ShowAutoStatus()
+    {
+        if (_selected == null || RemoteHub.Auto == null) return;
+        AutoText.Text = RemoteHub.Auto.Status.TryGetValue(_selected.Id, out var st)
+            ? (st.Error == null ? Loc.T("rem.autoSyncOk", st.At.ToString("t")) : Loc.T("rem.autoSyncErr", st.Error))
+            : "";
     }
 
     private void SyncAccounts_Changed(object s, RoutedEventArgs e)
@@ -242,4 +260,7 @@ public static class RemoteHub
 
     /// <summary>Modèle de vue principal (donne accès aux données à synchroniser).</summary>
     public static IptvPlayer.ViewModels.MainViewModel? Vm { get; set; }
+
+    /// <summary>Synchronisation permanente avec les appareils lies.</summary>
+    public static IptvPlayer.Services.Remote.AutoSync? Auto { get; set; }
 }

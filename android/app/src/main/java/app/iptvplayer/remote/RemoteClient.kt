@@ -19,7 +19,7 @@ import javax.net.ssl.X509TrustManager
 
 /** Appareil appairé, avec l'empreinte épinglée de son certificat et le jeton secret (stocké chiffré). */
 @Serializable
-data class KnownTarget(val id: String, val name: String, val host: String, val port: Int, val platform: String, val fingerprint: String, val token: String)
+data class KnownTarget(val id: String, val name: String, val host: String, val port: Int, val platform: String, val fingerprint: String, val token: String, val accounts: Boolean = false)
 
 /** Appareil vu sur le réseau (annonce mDNS), pas encore forcément appairé. */
 data class FoundTarget(val id: String, val name: String, val host: String, val port: Int, val platform: String, val pin: String? = null, val fingerprint: String? = null)

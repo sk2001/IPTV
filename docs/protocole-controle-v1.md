@@ -145,3 +145,8 @@ Lien : `iptvplayer://pair?host=<ip>&port=<port>&id=<uuid>&name=<nom>&pin=<6 chif
 * **PC** : le serveur n'existe que le temps où la fenêtre « Partager ma configuration » est ouverte (port aléatoire, certificat éphémère) ; il n'implémente que `/info`, `/pair/*` et `/sync/*`.
 * **TV** : au premier lancement (aucun compte), la TV active le contrôle à distance et affiche l'offre ; le téléphone la scanne et envoie sa configuration.
 
+## 10. Synchronisation permanente et lien retour
+
+* `GET /sync/manifest` renvoie `{collection: {count, latest}}` pour les collections autorisées à l'appareil appelant (`accounts` seulement s'il a été appairé par une offre ou si l'option est activée sur la cible). Un initiateur compare ce manifeste et l'empreinte de son état local avec ceux de la dernière synchro : s'ils sont identiques, rien n'est échangé.
+* `POST /link {"link": "iptvplayer://pair?…&pin=…&fp=…"}` (serveur de partage du PC, jeton requis) : le téléphone invite le PC à s'appairer chez lui avec une offre fraîche ; le PC pair en retour et mémorise le téléphone comme cible permanente.
+

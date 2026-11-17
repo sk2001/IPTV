@@ -29,6 +29,7 @@ public partial class ShareWindow : Window
             col => Dispatcher.Invoke(() => SyncEngine.ToJson(_engine.Snapshot(col).Values)),
             (col, json) => Dispatcher.Invoke(() => { var n = _engine.Merge(col, SyncEngine.FromJson(json)); _vm.AfterSync(); return n; }));
         _server.Changed += () => Dispatcher.BeginInvoke(UpdateStatus);
+        _server.LinkRequested += link => Dispatcher.BeginInvoke(async () => await LinkBackAsync(link));
 
         Loaded += (_, _) => Start();
         Closed += (_, _) => _server.Dispose();                      // le PC cesse d'ecouter
@@ -62,6 +63,24 @@ public partial class ShareWindow : Window
         StatusText.Text = !_server.Paired ? Loc.T("share.waiting")
             : _server.Collections == 0 ? Loc.T("share.connected", _server.PairedName ?? "")
             : Loc.T("share.done", _server.PairedName ?? "");
+    }
+
+    /// <summary>Le telephone a envoye son offre : le PC s'appaire chez lui (cible permanente, comptes inclus) pour la synchro continue.</summary>
+    private async Task LinkBackAsync(string link)
+    {
+        try
+        {
+            var q = System.Web.HttpUtility.ParseQueryString(link[(link.IndexOf('?') + 1)..]);
+            if (q["host"] is not { Length: > 0 } host || !int.TryParse(q["port"], out var port) || q["pin"] is not { Length: 6 } pin || q["fp"] is not { Length: 64 } fp
+                || !System.Net.IPAddress.TryParse(host, out var ip) || !ShareServer.IsPrivate(ip)) return;
+            using var c = new RemoteClient(host, port, fp, null);
+            var s = await c.PairStartAsync(RemoteHub.Store.DeviceId, RemoteHub.Store.DeviceName, "windows");
+            var (token, id, name) = await c.PairConfirmAsync(s, pin);
+            RemoteHub.Store.AddOrReplace(new KnownTarget { Id = id, Name = name, Host = host, Port = port, Platform = q["plat"] ?? "android", Fingerprint = s.Fingerprint, Token = token, Accounts = true });
+            StatusText.Text = Loc.T("share.linked", name);
+            RemoteHub.Auto?.Request();
+        }
+        catch (Exception ex) { StatusText.Text = ex.Message; }
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();

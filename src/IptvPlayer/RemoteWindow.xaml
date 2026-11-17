@@ -33,6 +33,8 @@
                     </WrapPanel>
                     <Button Content="{loc:T rem.sync}" Click="Sync_Click" HorizontalAlignment="Left" Margin="0,4,0,0"/>
                     <TextBlock x:Name="SyncText" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+                    <TextBlock x:Name="AutoText" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                    <CheckBox x:Name="AutoSyncBox" Content="{loc:T rem.autoSync}" Margin="0,8,0,0" Checked="AutoSync_Changed" Unchecked="AutoSync_Changed"/>
                     <CheckBox x:Name="SyncAccountsBox" Content="{loc:T rem.syncAccounts}" Margin="0,10,0,0" Checked="SyncAccounts_Changed" Unchecked="SyncAccounts_Changed"/>
                     <Button Content="{loc:T rem.back}" Click="Disconnect_Click" HorizontalAlignment="Left" Margin="0,8,0,0"/>
                 </StackPanel>

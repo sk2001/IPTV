@@ -141,4 +141,16 @@
     <string name="tv_setup_title">Set up this TV</string>
     <string name="tv_setup_steps">1. Open IPTV Player on your phone.\n2. Go to Settings, Remote control, and choose Scan a QR code.\n3. Scan the code on the right and confirm the transfer.\n\nYour accounts, settings, favorites and progress will appear here.</string>
     <string name="tv_setup_manual">Add an account manually</string>
+    <string name="ctrl_autosync_ok">Kept in sync automatically — last check %1$s</string>
+    <string name="ctrl_autosync_err">Automatic sync: %1$s (will retry)</string>
+    <string name="settings_autosync">Keep linked devices in sync automatically (every 30 seconds and after each change)</string>
+    <string name="hero_on_now">ON NOW</string>
+    <string name="hero_up_next">UP NEXT · %1$s</string>
+    <string name="hero_ended">ENDED</string>
+    <string name="hero_watch">Watch</string>
+    <string name="hero_last">Last channel</string>
+    <string name="hero_none">Select a program in the guide.</string>
+    <string name="hero_no_desc">No description available.</string>
+    <string name="guide_no_info">No program information</string>
+    <string name="mini_tap">Tap to watch full screen</string>
 </resources>

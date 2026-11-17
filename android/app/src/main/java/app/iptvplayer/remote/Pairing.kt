@@ -37,7 +37,7 @@ object PairCrypto {
 }
 
 @Serializable
-data class PairedDevice(val id: String, val name: String, val platform: String, val tokenHash: String, val pairedAt: Long, val lastUsed: Long = 0)
+data class PairedDevice(val id: String, val name: String, val platform: String, val tokenHash: String, val pairedAt: Long, val lastUsed: Long = 0, val accounts: Boolean = false)
 
 @Serializable
 private data class DeviceFile(val devices: List<PairedDevice> = emptyList())
@@ -84,7 +84,6 @@ class PairingManager(private val registry: DeviceRegistry, private val clock: ()
     private var offerPin: String? = null
     private var offerExpires = 0L
     private var offerFailures = 0
-    private val provisioned = HashMap<String, Long>()      // appareil configure par une offre -> fin de l'autorisation de recevoir les comptes
 
     val offerActive: Boolean get() = synchronized(lock) { offerPin != null && clock() < offerExpires }
 
@@ -97,8 +96,8 @@ class PairingManager(private val registry: DeviceRegistry, private val clock: ()
 
     fun closeOffer() { synchronized(lock) { offerPin = null }; onChange() }
 
-    /** Cet appareil a ete appaire via une offre recente : il peut recevoir / envoyer les comptes (mots de passe compris). */
-    fun accountsAllowed(deviceId: String): Boolean = synchronized(lock) { (provisioned[deviceId] ?: 0) > clock() }
+    /** Cet appareil a ete appaire via une offre (QR code / code a usage unique) : il echange aussi les comptes, mots de passe compris. */
+    fun accountsAllowed(deviceId: String): Boolean = registry.all().firstOrNull { it.id == deviceId }?.accounts == true
 
     /** PIN à afficher sur l'écran de la cible (null = aucun appairage en cours). */
     val currentPin: String? get() = synchronized(lock) {
@@ -132,9 +131,9 @@ class PairingManager(private val registry: DeviceRegistry, private val clock: ()
                 return@synchronized if (pending == null) PairResult.Expired else PairResult.Invalid
             }
             pending = null
-            if (p.fromOffer) { offerPin = null; provisioned[p.deviceId] = clock() + 10 * 60_000L }       // offre a usage unique
+            if (p.fromOffer) offerPin = null                                                              // offre a usage unique
             val token = PairCrypto.randomToken()
-            val dev = PairedDevice(p.deviceId, p.deviceName, p.platform, PairCrypto.sha256Hex(token), clock())
+            val dev = PairedDevice(p.deviceId, p.deviceName, p.platform, PairCrypto.sha256Hex(token), clock(), accounts = p.fromOffer)
             registry.add(dev)
             PairResult.Ok(token, PairCrypto.proof(p.pin, true, p.id, p.clientNonce, p.serverNonce, fingerprint), dev)
         }

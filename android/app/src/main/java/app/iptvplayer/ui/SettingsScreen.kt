@@ -172,6 +172,9 @@ private fun RemoteSection(vm: AppViewModel) {
         ) { rc.setEnabled(it == "on") }
         if (on) {
             Text(stringResource(R.string.remote_status, rc.deviceName, port), color = Palette.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+            val auto by rc.autoSync.collectAsState()
+            Text(stringResource(R.string.settings_autosync), color = Palette.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
+            Chips(listOf("on" to stringResource(R.string.remote_on), "off" to stringResource(R.string.remote_off)), if (auto) "on" else "off") { rc.setAutoSync(it == "on") }
             val syncAcc by rc.syncAccounts.collectAsState()
             Text(stringResource(R.string.settings_sync_accounts), color = Palette.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
             Chips(listOf("on" to stringResource(R.string.remote_on), "off" to stringResource(R.string.remote_off)), if (syncAcc) "on" else "off") { rc.setSyncAccounts(it == "on") }

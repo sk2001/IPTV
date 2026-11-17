@@ -93,6 +93,14 @@ public sealed class SyncEngine
         return res;
     }
 
+    /// <summary>Empreinte rapide de l'etat local (nombre d'enregistrements et derniere date par collection).</summary>
+    public string Signature(bool includeAccounts) => string.Join(";", _adapters.Keys.Where(c => c != "accounts" || includeAccounts)
+        .OrderBy(c => c, StringComparer.Ordinal).Select(c =>
+        {
+            var r = Snapshot(c).Values.ToList();
+            return $"{c}:{r.Count}:{(r.Count == 0 ? 0 : r.Max(x => x.UpdatedAt))}";
+        }));
+
     public int Merge(string collection, IEnumerable<SyncRecord> incoming)
     {
         if (!_adapters.TryGetValue(collection, out var adapter)) return 0;

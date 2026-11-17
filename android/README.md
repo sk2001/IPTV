@@ -147,3 +147,13 @@ Comptes Xtream et M3U (chiffrés avec le Keystore) · catalogue en cache · Live
 
 **Configurer un nouvel appareil** : au premier lancement, « Se connecter avec un autre appareil » → scanner le QR code affiché par l'application Windows (Réglages ▸ « Partager ma configuration… ») ou par un autre appareil Android (Réglages ▸ « Afficher un QR code… »), ou saisir `ip:port` et le code. Sur **TV**, l'écran « Configurer cette TV » affiche un QR code à scanner depuis le téléphone (Réglages ▸ Télécommande ▸ Scanner un QR code).
 Le téléphone et l'autre appareil doivent être sur le même réseau local.
+
+## TV en direct « à la Plex » (téléphone, tablette, TV)
+
+L'onglet **Live** s'ouvre sur le guide :
+
+* **Bandeau** : chaîne, « À L'ANTENNE » / « À SUIVRE », titre, horaire, progression, description (XMLTV), boutons *Regarder*, favori et *Dernière chaîne*.
+* **Guide en grille** : chaînes en lignes, programmes en colonnes horaires (de −2 h à +36 h), ligne « maintenant » ; défilement horizontal commun à toutes les lignes ; les chaînes sans programme restent listées. Téléphone : toucher un programme le met en avant, le toucher à nouveau lance la chaîne. TV : le focus d'un programme met le bandeau à jour, OK lance la chaîne, appui long sur une chaîne = favori.
+* **Mini-lecteur** : Retour dans le lecteur plein écran ramène au guide et la lecture continue — dans le bandeau (TV, tablette) ou dans une barre en bas (téléphone) ; toucher / OK = plein écran. Changer d'onglet arrête le mini-lecteur.
+* Le faux serveur de test (`tools/mock-xtream/server.py`) fournit un guide fictif pour les 60 chaînes.
+

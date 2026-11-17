@@ -135,4 +135,16 @@
     <string name="tv_setup_title">Configurer cette TV</string>
     <string name="tv_setup_steps">1. Ouvrez IPTV Player sur votre téléphone.\n2. Allez dans Paramètres, Télécommande, puis Scanner un QR code.\n3. Scannez le code à droite et confirmez le transfert.\n\nVos comptes, réglages, favoris et progression apparaîtront ici.</string>
     <string name="tv_setup_manual">Ajouter un compte manuellement</string>
+    <string name="ctrl_autosync_ok">Synchronisé automatiquement — dernière vérification %1$s</string>
+    <string name="ctrl_autosync_err">Synchro automatique : %1$s (nouvel essai)</string>
+    <string name="settings_autosync">Garder les appareils liés à jour en permanence (toutes les 30 secondes et après chaque changement)</string>
+    <string name="hero_on_now">À L’ANTENNE</string>
+    <string name="hero_up_next">À SUIVRE · %1$s</string>
+    <string name="hero_ended">TERMINÉ</string>
+    <string name="hero_watch">Regarder</string>
+    <string name="hero_last">Dernière chaîne</string>
+    <string name="hero_none">Sélectionnez un programme dans le guide.</string>
+    <string name="hero_no_desc">Aucune description disponible.</string>
+    <string name="guide_no_info">Aucune information de programme</string>
+    <string name="mini_tap">Touchez pour regarder en plein écran</string>
 </resources>

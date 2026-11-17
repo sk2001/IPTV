@@ -84,6 +84,12 @@ class SyncEngine(
         return out
     }
 
+    /** Empreinte rapide de l'etat local (nombre d'enregistrements et derniere date par collection). */
+    fun signature(includeAccounts: Boolean): String =
+        collections.filter { it != "accounts" || includeAccounts }.sorted().joinToString(";") { c ->
+            val r = snapshot(c).values; "$c:${r.size}:${r.maxOfOrNull { it.updatedAt } ?: 0}"
+        }
+
     /** Fusionne les enregistrements du pair (la dernière écriture gagne ; à égalité, l'identifiant d'appareil le plus grand). Retourne le nombre appliqué. */
     @Synchronized
     fun merge(collection: String, incoming: Collection<SyncRecord>): Int {

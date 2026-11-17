@@ -68,11 +68,21 @@ class PlayerController(private val app: Application) {
     // ------------------------------------------------------------------ Vue vidéo
 
     fun attach(view: VLCVideoLayout) {
+        val mp = player
+        if (mp != null && layout != null && layout !== view) runCatching { mp.detachViews() }       // l'ancienne surface est liberee apres la nouvelle : on la detache d'abord
         layout = view
-        player?.attachViews(view, null, true, false)
+        if (mp == null) return
+        try { mp.attachViews(view, null, true, false) }
+        catch (e: IllegalStateException) { mp.detachViews(); mp.attachViews(view, null, true, false) }
+        // Lecture deja en cours (passage plein ecran <-> mini-lecteur) : on relance la sortie video sur la nouvelle surface.
+        if (_state.value.request != null) android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            runCatching { mp.setVideoTrackEnabled(false); mp.setVideoTrackEnabled(true); mp.updateVideoSurfaces() }
+        }, 400)
     }
 
-    fun detach() {
+    /** Detache la vue donnee, seulement si c'est encore la vue courante (mini-lecteur -> plein ecran : l'ancienne vue est liberee apres la nouvelle). */
+    fun detach(view: VLCVideoLayout) {
+        if (layout !== view) return
         player?.detachViews()
         layout = null
     }

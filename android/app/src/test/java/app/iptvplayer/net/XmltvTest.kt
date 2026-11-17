@@ -15,6 +15,12 @@ class XmltvTest {
         <programme start="20230101100000 +0000" stop="20230101110000 +0000" channel="a"><title>Trop ancien</title></programme>
         </tv>"""
 
+    @Test fun readsDescriptions() {
+        val r = Xmltv.parse(xml.byteInputStream(), setOf("a"), Xmltv.parseTime("20240101090000"), Xmltv.parseTime("20240102000000"))
+        assertEquals("x", r["a"]!![0].desc)
+        assertEquals("", r["a"]!![1].desc)
+    }
+
     @Test fun timeWithOffset() {
         assertEquals(Xmltv.parseTime("20240101090000 +0000"), Xmltv.parseTime("20240101100000 +0100"))
         assertEquals(0L, Xmltv.parseTime("n/a"))

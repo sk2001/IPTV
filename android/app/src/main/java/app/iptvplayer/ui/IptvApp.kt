@@ -45,7 +45,9 @@ fun IptvApp(vm: AppViewModel) {
     var editing by remember { mutableStateOf<Account?>(null) }
     val tv = isTelevision(androidx.compose.ui.platform.LocalContext.current)
 
+    val full by vm.playerFull.collectAsState()
     LaunchedEffect(tab) {
+        if (tab != Tab.LIVE && vm.player.state.value.request != null && !vm.playerFull.value) vm.closePlayer()      // le mini-lecteur vit dans le guide
         when (tab) {
             Tab.LIVE -> vm.setKind(Kind.LIVE)
             Tab.MOVIES -> vm.setKind(Kind.MOVIE)
@@ -86,13 +88,13 @@ fun IptvApp(vm: AppViewModel) {
                     if (tab == Tab.SETTINGS) {
                         SettingsScreen(vm, onEditAccount = { editing = it }, onAddAccount = { editing = newAccount() })
                     } else {
-                        BrowseScreen(vm, onManageAccounts = { tab = Tab.SETTINGS })
+                        if (tab == Tab.LIVE) LiveTvScreen(vm, tv = false) else BrowseScreen(vm, onManageAccounts = { tab = Tab.SETTINGS })
                     }
                 }
             }
         }
 
-        if (player.request != null) PlayerScreen(vm)
+        if (player.request != null && full) PlayerScreen(vm)
         episodes?.let { EpisodesSheet(vm, it) }
         val ctrlOpen by vm.controllerOpen.collectAsState()
         if (ctrlOpen && player.request == null) ControllerScreen(vm, onClose = { vm.controllerOpen.value = false })

@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
@@ -98,6 +99,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         loadAccount(force = false)
         remote   // démarre le contrôle à distance s'il est activé
+        controller.startAutoSync()                                  // appareils liés toujours à jour
+        viewModelScope.launch { userData.data.drop(1).collect { controller.requestSync() } }
+        viewModelScope.launch { accounts.drop(1).collect { controller.requestSync() } }
         // Enregistre la progression des films/épisodes toutes les 10 s.
         viewModelScope.launch { while (true) { delay(10_000); reportProgress() } }
     }
@@ -137,10 +141,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val ids = catalog.value?.items?.filter { it.kind == Kind.LIVE }?.mapNotNull { it.epgId }?.toSet().orEmpty()
         if (url == null || ids.isEmpty()) return
         epgJob = viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val now = System.currentTimeMillis()
-                epg.value = Http.open(url, 120_000).use { Xmltv.parse(it, ids, now - 2 * 3_600_000L, now + 36 * 3_600_000L) }
-            } catch (e: CancellationException) { throw e } catch (_: Exception) { /* guide facultatif */ }
+            // Trois essais : une erreur reseau passagere ne doit pas priver du guide jusqu'au prochain lancement.
+            for (attempt in 1..3) {
+                try {
+                    val now = System.currentTimeMillis()
+                    epg.value = Http.open(url, 120_000).use { Xmltv.parse(it, ids, now - 2 * 3_600_000L, now + 36 * 3_600_000L) }
+                    android.util.Log.i("EPG", "guide charge : ${epg.value.size} chaines")
+                    return@launch
+                } catch (e: CancellationException) { throw e }
+                catch (e: Exception) { android.util.Log.w("EPG", "guide indisponible (essai $attempt) : ${e.javaClass.simpleName}") }
+                delay(4_000L * attempt)
+            }
         }
     }
 
@@ -245,8 +256,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ------------------------------------------------------------------ Lecture
 
+    // ------------------------------------------------------------------ TV en direct (guide, mini-lecteur, derniere chaine)
+
+    /** Lecture en plein ecran (true) ou reduite dans le guide (false). */
+    val playerFull = MutableStateFlow(true)
+    val previousChannel = MutableStateFlow<MediaItem?>(null)
+    private var currentLive: MediaItem? = null
+
+    data class GuideSel(val itemId: String? = null, val progStart: Long? = null)
+    val guideSel = MutableStateFlow(GuideSel())
+
+    fun selectGuide(item: MediaItem, p: Programme?) { guideSel.value = GuideSel(item.id, p?.start) }
+    /** Retour au guide : la lecture continue dans le mini-lecteur. */
+    fun minimize() { playerFull.value = false }
+    fun expand() { playerFull.value = true }
+    fun playPrevious() { previousChannel.value?.let { play(it) } }
+
     fun play(item: MediaItem) {
         val acc = selectedAccount.value ?: return
+        if (item.kind == Kind.LIVE) {
+            currentLive?.takeIf { it.id != item.id }?.let { previousChannel.value = it }
+            currentLive = item
+        }
         when (item.kind) {
             Kind.SERIES -> openEpisodes(item)
             else -> {
@@ -280,6 +311,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun resumePosition(e: WatchEntry?): Long = if (userData.data.value.resumePlayback && e?.inProgress == true) e.positionMs else 0
 
     fun startPlayback(req: PlayRequest) {
+        playerFull.value = true
         reportProgress(flush = true)
         player.play(req, userData.data.value)
     }
@@ -288,6 +320,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         reportProgress(flush = true)
         player.stop()
         player.clearRequest()
+        playerFull.value = true
+        currentLive = null
     }
 
     private fun entryOf(r: PlayRequest) = WatchEntry(r.accountId, r.kind, r.itemId, r.episodeId, r.season, r.number, r.title, r.logo)

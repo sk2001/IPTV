@@ -84,6 +84,7 @@ fun isTelevision(context: Context): Boolean {
 fun Modifier.tvFocusable(
     shape: androidx.compose.ui.graphics.Shape = RoundedCornerShape(10.dp),
     onLongClick: (() -> Unit)? = null,
+    onFocus: (() -> Unit)? = null,
     onClick: () -> Unit,
 ): Modifier {
     var focused by remember { mutableStateOf(false) }
@@ -92,7 +93,7 @@ fun Modifier.tvFocusable(
         .scale(scale)
         .border(if (focused) 3.dp else 0.dp, if (focused) Color.White else Color.Transparent, shape)
         .clip(shape)
-        .onFocusChanged { focused = it.isFocused }
+        .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus?.invoke() }
         .combinedClickable(onClick = onClick, onLongClick = onLongClick)
 }
 
@@ -112,6 +113,7 @@ fun TvShell(vm: AppViewModel, tab: Tab, onTab: (Tab) -> Unit, onEditAccount: (ap
         }
         Box(Modifier.weight(1f).fillMaxHeight()) {
             if (tab == Tab.SETTINGS) SettingsScreen(vm, onEditAccount = onEditAccount, onAddAccount = onAddAccount)
+            else if (tab == Tab.LIVE) LiveTvScreen(vm, tv = true)
             else TvBrowse(vm, tab)
         }
     }

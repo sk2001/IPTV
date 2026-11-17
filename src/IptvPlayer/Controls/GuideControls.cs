@@ -24,6 +24,7 @@ internal static class GuideStyle
     public static readonly Brush Line = Freeze(new SolidColorBrush(Color.FromRgb(0x2A, 0x32, 0x3D)));
     public static readonly Brush NowLine = Freeze(new SolidColorBrush(Color.FromRgb(0xF8, 0x51, 0x49)));
     public static readonly Pen LiveOutline = FreezePen(new Pen(LiveBorder, 1));
+    public static readonly Pen SelectedOutline = FreezePen(new Pen(Brushes.White, 2));
 
     private static Brush Freeze(SolidColorBrush b) { b.Freeze(); return b; }
     private static Pen FreezePen(Pen p) { p.Freeze(); return p; }
@@ -35,6 +36,14 @@ internal static class GuideStyle
             MaxLineCount = 1,
             Trimming = TextTrimming.CharacterEllipsis,
         };
+}
+
+public delegate void EntryClickedEventHandler(object sender, EntryClickedEventArgs e);
+
+public sealed class EntryClickedEventArgs : RoutedEventArgs
+{
+    public EntryClickedEventArgs(RoutedEvent ev, object source, EpgEntry? entry) : base(ev, source) { Entry = entry; }
+    public EpgEntry? Entry { get; }
 }
 
 /// <summary>Ligne de programmes d'une chaîne, dessinée directement (très rapide, aucune virtualisation à gérer).</summary>
@@ -52,6 +61,16 @@ public sealed class GuideStrip : FrameworkElement
     public static readonly DependencyProperty ClockProperty = DependencyProperty.Register(
         nameof(Clock), typeof(DateTime), typeof(GuideStrip),
         new FrameworkPropertyMetadata(DateTime.Now, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    /// <summary>Programme mis en avant (liseré blanc).</summary>
+    public static readonly DependencyProperty SelectedEntryProperty = DependencyProperty.Register(
+        nameof(SelectedEntry), typeof(EpgEntry), typeof(GuideStrip),
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly RoutedEvent EntryClickedEvent = EventManager.RegisterRoutedEvent(
+        "EntryClicked", RoutingStrategy.Bubble, typeof(EntryClickedEventHandler), typeof(GuideStrip));
+
+    public EpgEntry? SelectedEntry { get => (EpgEntry?)GetValue(SelectedEntryProperty); set => SetValue(SelectedEntryProperty, value); }
 
     public IReadOnlyList<EpgEntry>? Entries { get => (IReadOnlyList<EpgEntry>?)GetValue(EntriesProperty); set => SetValue(EntriesProperty, value); }
     public DateTime ViewStart { get => (DateTime)GetValue(ViewStartProperty); set => SetValue(ViewStartProperty, value); }
@@ -93,6 +112,7 @@ public sealed class GuideStrip : FrameworkElement
                 dc.DrawRoundedRectangle(isNow ? GuideStyle.Live : isPast ? GuideStyle.Past : GuideStyle.Cell,
                     isNow ? GuideStyle.LiveOutline : null, rect, 6, 6);
 
+                if (ReferenceEquals(e, SelectedEntry)) dc.DrawRoundedRectangle(null, GuideStyle.SelectedOutline, rect, 6, 6);
                 if (rect.Width < 28) continue;
                 var tw = rect.Width - 16;
                 var title = GuideStyle.Format(e.Title, 12.5, isPast ? GuideStyle.Muted : GuideStyle.Text, tw, dpi);
@@ -102,8 +122,20 @@ public sealed class GuideStrip : FrameworkElement
             }
         }
 
+        if (entries == null || entries.Count == 0)
+            dc.DrawText(GuideStyle.Format(IptvPlayer.Localization.Loc.T("guide.noInfo"), 12, GuideStyle.Dim, Math.Max(40, w - 20), dpi), new Point(12, h / 2 - 8));
+
         var nx = (now - start).TotalMinutes * GuideStyle.PxPerMinute;
         if (nx >= 0 && nx <= w) dc.DrawRectangle(GuideStyle.NowLine, null, new Rect(nx - 1, 0, 2, h));
+    }
+
+    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonDown(e);
+        if (e.ClickCount != 1) return;
+        var t = ViewStart.AddMinutes(e.GetPosition(this).X / GuideStyle.PxPerMinute);
+        var hit = Entries?.FirstOrDefault(x => x.Start <= t && x.End > t);
+        RaiseEvent(new EntryClickedEventArgs(EntryClickedEvent, this, hit));
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
