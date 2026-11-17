@@ -42,7 +42,7 @@ as well as the `lua\` folder and the development headers. The application needs 
    (containing `libvlc.dll`, `libvlccore.dll` and `plugins\`) **next to `IptvPlayer.exe`**: it takes precedence over the embedded engine.
    The embedded engine is extracted to `%LocalAppData%\IptvPlayer\libvlc-<version>` and can also be replaced there.
 3. **LibVLCSharp**: the source code of this project is available with its build script (`build.ps1`); change the version of the
-   `LibVLCSharp.WPF` package in `src/IptvPlayer/IptvPlayer.csproj` (or replace it with a modified version) and rebuild.
+   `LibVLCSharp.WPF` package in `desktop/IptvPlayer.csproj` (or replace it with a modified version) and rebuild.
 4. **Sources** of VLC / libVLC: <https://www.videolan.org/vlc/> (archives: <https://download.videolan.org/pub/videolan/vlc/>);
    NuGet package: <https://code.videolan.org/videolan/libvlc-nuget>; LibVLCSharp: <https://code.videolan.org/videolan/LibVLCSharp>.
 5. Any distribution of the binary must be accompanied by these notices and a way to obtain the source code of this project.

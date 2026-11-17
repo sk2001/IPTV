@@ -6,8 +6,8 @@ Lecteur IPTV avec **VLC embarqué** : application **Windows** autonome (WPF / .N
 
 | Plateforme | Dossier | Compiler / installer |
 |---|---|---|
-| Windows | `src/IptvPlayer` | [section ci-dessous](#compiler-et-installer-windows) |
-| Android / Android TV | `android/` | [section ci-dessous](#compiler-et-installer-android) · détails dans [`android/README.md`](android/README.md) |
+| Windows | [`desktop/`](desktop/README.md) | [`desktop/README.md`](desktop/README.md) |
+| Android / Android TV | [`android/`](android/README.md) | [`android/README.md`](android/README.md) |
 
 ## Fonctionnalités
 
@@ -19,7 +19,7 @@ Lecteur IPTV avec **VLC embarqué** : application **Windows** autonome (WPF / .N
 - Live, Films, Séries (choix de la saison / de l'épisode), catégories, recherche instantanée, favoris.
 - **Guide TV** : grille horaire (chaînes × programmes) avec trait « maintenant », infobulle de description, navigation ±2 h (boutons, `←` `→`, Maj + molette), filtre par catégorie et recherche, double-clic pour regarder. La liste des chaînes affiche aussi l'émission en cours avec sa progression. Source : `xmltv.php` (Xtream) ou `url-tvg` / `x-tvg-url` (M3U, URL ou fichier local) ; rapprochement par `tvg-id` puis par nom de chaîne ; mis en cache 6 h.
 - **Enregistrement** : bouton ● du lecteur (ou touche `R`) pour enregistrer le flux en cours en `.ts` (VLC écrit le fichier tout en l'affichant : une seule connexion au fournisseur). Badge `REC` avec durée et taille. L'onglet *Enreg.* liste les fichiers (lire, supprimer, ouvrir ou changer le dossier ; par défaut `Vidéos\IPTV Recordings`). Changer de chaîne ou quitter arrête l'enregistrement (confirmation à la fermeture).
-- **Langue de l'interface : anglais (par défaut) ou français**, au choix dans les Paramètres, appliquée immédiatement (menus, messages, dates). Les textes sont dans `src/IptvPlayer/Localization/Loc.cs` : toute nouvelle chaîne s'y ajoute en anglais **et** en français (`{loc:T clé}` en XAML, `Loc.T("clé")` en C#).
+- **Langue de l'interface : anglais (par défaut) ou français**, au choix dans les Paramètres, appliquée immédiatement (menus, messages, dates). Les textes sont dans `desktop/Localization/Loc.cs` : toute nouvelle chaîne s'y ajoute en anglais **et** en français (`{loc:T clé}` en XAML, `Loc.T("clé")` en C#).
 - **Licences consultables dans l'appli** (Paramètres → À propos) : les fichiers Markdown (`.md`) sont rendus mis en forme (titres, listes, tableaux, code, liens) par un moteur intégré sans dépendance ; les autres fichiers (LICENSE, texte LGPL) restent en texte brut. Les notices existent en français et en anglais.
 - **Paramètres** (engrenage de la barre latérale) : langue audio préférée pour les films et séries (anglais par défaut), langue des sous-titres, langue audio des chaînes live (« Auto » par défaut), reprise de lecture, effacement de l'historique. La langue est transmise à VLC puis complétée en choisissant la piste dont le nom contient la langue (ex. « English »), pour les fournisseurs qui ne renseignent pas les métadonnées.
 - **Historique de visionnage** (films et séries, par compte, `history.json`) : catégorie « ↺ Historique » dans Films / Séries (`Suppr` retire un élément), mention « ✓ Vu » / « ▶ 34 % » avec barre de progression dans les listes, **reprise automatique** là où l'on s'est arrêté, et pour les séries : épisodes vus / entamés dans la liste des épisodes, épisode suivant présélectionné, bouton « Marquer vu / non vu ». Un titre est considéré vu à 92 %.
@@ -27,44 +27,20 @@ Lecteur IPTV avec **VLC embarqué** : application **Windows** autonome (WPF / .N
 - Raccourcis : `Espace` pause · `F` / `F11` plein écran · `Échap` quitter le plein écran · `M` muet · `↑ ↓` volume · `← →` ±10 s · double-clic sur la vidéo = plein écran.
 - Performances : catalogue mis en cache (JSON gzip) → affichage instantané au lancement, rafraîchi en arrière-plan ; listes virtualisées (des dizaines de milliers de chaînes) ; décodage matériel VLC ; initialisation de VLC en arrière-plan.
 
-## Compiler et installer (Windows)
+## Compiler
 
-Prérequis : **.NET 9 SDK** et Windows 10/11 x64.
-
-```powershell
-./build.ps1                 # -> dist\IptvPlayer.exe
-```
-
-Produit **un seul fichier** : `dist\IptvPlayer.exe` (~186 Mo) avec le runtime .NET, WPF et le moteur VLC embarqués. Aucune installation : copier le fichier où l'on veut et le lancer.
-Au premier lancement, VLC est extrait (quelques secondes) dans `%LocalAppData%\IptvPlayer\libvlc-<version>` ; les lancements suivants sont immédiats.
-Pour désinstaller : supprimer l'exécutable, `%AppData%\IptvPlayer` (données) et `%LocalAppData%\IptvPlayer` (moteur VLC extrait).
-
-Pour compiler sans produire l'exécutable unique (développement) : `dotnet build src/IptvPlayer/IptvPlayer.csproj -o <dossier-temporaire>`.
-La première fois que l'on utilise « Partager ma configuration », Windows peut demander d'autoriser l'application sur les réseaux privés : accepter.
-
-## Compiler et installer (Android)
-
-Résumé (détails, prérequis, émulateur et dépannage : [`android/README.md`](android/README.md)) :
+Tout se lance depuis la racine avec **`build.ps1`** (PowerShell) :
 
 ```powershell
-. .\tools\android-env.ps1          # une fois par fenêtre PowerShell
-cd android
-
-# --- APK de test (signé avec la clé de débogage) ---
-.\gradlew.bat assembleDebug
-adb install -r app\build\outputs\apk\debug\app-arm64-v8a-debug.apk     # téléphone / TV réels (débogage USB activé)
-adb install -r app\build\outputs\apk\debug\app-x86_64-debug.apk        # émulateur
-
-# --- APK de distribution : créer d'abord une clé et android\keystore.properties (voir android/README.md §4) ---
-.\gradlew.bat assembleRelease
-adb install -r app\build\outputs\apk\release\app-arm64-v8a-release.apk
-
-# --- Tests unitaires ---
-.\gradlew.bat testDebugUnitTest
+./build.ps1                          # tout : Windows + Android
+./build.ps1 desktop                  # seulement Windows  -> dist\desktop\IptvPlayer.exe
+./build.ps1 android                  # seulement Android  -> dist\android\*.apk
+./build.ps1 android -AndroidVariant release   # APK signé (clé : android\keystore.properties)
 ```
 
-Si une version signée autrement est déjà installée (debug ↔ release), la désinstaller d'abord (`adb uninstall app.iptvplayer`) ; les appareils déjà appairés devront alors être appairés à nouveau.
-**Avant de diffuser un APK**, recompiler libVLC en LGPL (`tools/build-libvlc-lgpl.sh`, sous WSL) : le paquet officiel contient du code GPL (x264) ; voir `android/README.md` §5.
+* **Windows** : un seul exécutable `dist\desktop\IptvPlayer.exe` (~186 Mo, runtime .NET, WPF et VLC embarqués). Prérequis : .NET 9 SDK. Détails, installation et données : [`desktop/README.md`](desktop/README.md).
+* **Android** : un APK par architecture dans `dist\android\`. Par défaut, APK de test (debug) ; APK signé (release) si `android\keystore.properties` existe. Prérequis (JDK 17, SDK Android), installation sur téléphone / TV / émulateur, libVLC en LGPL : [`android/README.md`](android/README.md).
+* Une cible qui échoue n'empêche pas l'autre de se compiler ; le code de sortie est 1 si l'une a échoué. `Get-Help ./build.ps1` affiche toutes les options.
 
 ## Licences
 
@@ -77,14 +53,9 @@ Si une version signée autrement est déjà installée (debug ↔ release), la d
 
 ## Logo
 
-Source : `assets/logo.svg`. Les fichiers `.ico` / `.png` de l'application se régénèrent avec
-`powershell.exe -STA -File tools\make-icon.ps1` (à relancer si le dessin change dans le script).
+Source : `assets/logo.svg`. Les fichiers `.ico` / `.png` de l'application Windows (`desktop/Assets/`) se régénèrent avec
+`powershell.exe -STA -File tools\make-icon.ps1` (à relancer si le dessin change dans le script) ; ceux d'Android avec `tools\make-android-icons.ps1`.
 
 ## Contrôle d'appareils Android
 
 Réglages ▸ « Télécommande… » : découvre (mDNS) ou accepte une adresse, appaire un téléphone / une TV Android par PIN, puis le pilote ; le bouton « Envoyer vers » du lecteur lui transmet la lecture en cours. Le PC n'accepte aucune connexion entrante, sauf pendant la fenêtre « Partager ma configuration » (serveur éphémère + QR code pour configurer un nouvel appareil Android). Synchronisation des favoris / historique / réglages (et comptes, en option) depuis cette même fenêtre. Protocole : `docs/protocole-controle-v1.md`.
-
-## Données utilisateur
-
-`%AppData%\IptvPlayer\` : `accounts.json`, `remote-targets.json` (appareils appairés, jetons chiffrés DPAPI), `state.json` (favoris, volume, dernier compte, préférences de langue), `history.json` (historique de visionnage), `cache\` (catalogues). `%LocalAppData%\IptvPlayer\libvlc-*` : moteur VLC extrait (les anciennes versions inutilisées sont supprimées automatiquement au lancement, en arrière-plan), `%LocalAppData%\IptvPlayer\img\` : miniatures des logos.
-

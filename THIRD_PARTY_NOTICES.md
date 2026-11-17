@@ -43,7 +43,7 @@ playlists analysées par l'application elle-même).
    `libvlc` (contenant `libvlc.dll`, `libvlccore.dll` et `plugins\`) **à côté de `IptvPlayer.exe`** : il prend le pas sur le moteur embarqué.
    Le moteur embarqué est extrait dans `%LocalAppData%\IptvPlayer\libvlc-<version>` et peut aussi y être remplacé.
 3. **LibVLCSharp** : le code source de ce projet est disponible avec son script de construction (`build.ps1`) ; il suffit de changer la version du
-   paquet `LibVLCSharp.WPF` dans `src/IptvPlayer/IptvPlayer.csproj` (ou de le remplacer par une version modifiée) puis de reconstruire.
+   paquet `LibVLCSharp.WPF` dans `desktop/IptvPlayer.csproj` (ou de le remplacer par une version modifiée) puis de reconstruire.
 4. **Sources** de VLC / libVLC : <https://www.videolan.org/vlc/> (archives : <https://download.videolan.org/pub/videolan/vlc/>) ;
    paquet NuGet : <https://code.videolan.org/videolan/libvlc-nuget> ; LibVLCSharp : <https://code.videolan.org/videolan/LibVLCSharp>.
 5. Toute distribution du binaire doit s'accompagner de ces avis et d'un moyen d'obtenir le code source de ce projet.

@@ -1,13 +1,13 @@
 # Génère l'icône de l'application depuis la géométrie du logo (identique à assets\logo.svg).
 #   assets\logo.png                        (512 px, README)
-#   src\IptvPlayer\Assets\app.ico          (16 -> 256 px, icône de l'exe et des fenêtres)
-#   src\IptvPlayer\Assets\logo.png         (128 px, affichage dans l'interface)
+#   desktop\Assets\app.ico          (16 -> 256 px, icône de l'exe et des fenêtres)
+#   desktop\Assets\logo.png         (128 px, affichage dans l'interface)
 # Exécuter avec Windows PowerShell : powershell.exe -STA -File tools\make-icon.ps1
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName PresentationCore, PresentationFramework, WindowsBase
 
 $root = Split-Path $PSScriptRoot -Parent
-$assetsApp = Join-Path $root 'src\IptvPlayer\Assets'
+$assetsApp = Join-Path $root 'desktop\Assets'
 New-Item -ItemType Directory -Force $assetsApp, (Join-Path $root 'assets') | Out-Null
 
 function Get-Color([string]$hex) { [System.Windows.Media.ColorConverter]::ConvertFromString($hex) }
@@ -88,4 +88,4 @@ foreach ($img in $images) { $bw.Write($img) }
 $bw.Flush()
 [IO.File]::WriteAllBytes((Join-Path $assetsApp 'app.ico'), $ms.ToArray())
 
-"OK : assets\logo.png, src\IptvPlayer\Assets\app.ico ({0} Ko), src\IptvPlayer\Assets\logo.png" -f [math]::Round((Get-Item (Join-Path $assetsApp 'app.ico')).Length / 1KB)
+"OK : assets\logo.png, desktop\Assets\app.ico ({0} Ko), desktop\Assets\logo.png" -f [math]::Round((Get-Item (Join-Path $assetsApp 'app.ico')).Length / 1KB)

@@ -23,6 +23,8 @@ Gradle (9.9.1) est téléchargé automatiquement par `gradlew`. Si les outils so
 cd android
 ```
 
+> **Raccourci depuis la racine du dépôt** : `./build.ps1 android` compile et copie les APK dans `dist\android\` (debug, ou release si `android\keystore.properties` existe ; option `-AndroidVariant debug|release`). Les sections suivantes détaillent ce que le script fait.
+
 ## 2. Compiler un APK de test (debug)
 
 ```powershell
